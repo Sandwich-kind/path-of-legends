@@ -11,7 +11,7 @@ func press(a: String, n: int) -> void:
 	Input.action_press(a)
 	held[a] = f + n
 func shot(name: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
 	print("shot ", name)
 func _process(_d: float) -> bool:
 	f += 1
@@ -22,12 +22,12 @@ func _process(_d: float) -> bool:
 	match f:
 		3:
 			main.sel = [0, 0]
-			main.start_arena()
+			main.start_arena(false, 1)
 			for n in main.world.get_children():
 				if n is ArenaMode: arena = n
 			arena._queue.clear()
 		200:
-			p = arena.player
+			p = arena.players[0]
 			p.frozen = false
 			arena.wave = 20
 			arena._state = "test"
@@ -51,12 +51,12 @@ func _process(_d: float) -> bool:
 			arena._rebuild(3)
 		500:
 			main.sel = [1, 0]
-			main.start_arena()
+			main.start_arena(false, 1)
 			for n in main.world.get_children():
 				if n is ArenaMode: arena = n
 			arena._queue.clear()
 		700:
-			p = arena.player
+			p = arena.players[0]
 			p.frozen = false
 			arena.wave = 20
 			arena._state = "test"

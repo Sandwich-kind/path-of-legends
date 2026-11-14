@@ -22,3 +22,6 @@ tests/shots/
 .DS_Store
 Thumbs.db
 *.tmp
+.xdg/
+__pycache__/
+*.pyc

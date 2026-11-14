@@ -28,7 +28,7 @@ func _process(_d: float) -> bool:
 	if f == 20:
 		for pair in vps:
 			var img: Image = pair[1].get_texture().get_image()
-			img.save_png("/home/claude/bosses/%s.png" % pair[0])
+			if img: img.save_png("/home/claude/bosses/%s.png" % pair[0])
 			print("saved ", pair[0])
 		return true
 	return false

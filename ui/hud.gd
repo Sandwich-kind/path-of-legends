@@ -17,6 +17,10 @@ var _buffs2: RichTextLabel
 var _hint: Label
 var coins: CoinBadge
 var _timer: Label
+var _lives: Control
+var _lives_l: Label
+var _tip: Label
+var _tip_tw: Tween
 
 func _ready() -> void:
 	layer = 5
@@ -94,6 +98,7 @@ func set_sub(text: String) -> void:
 
 # Крупная надпись посередине экрана
 func show_banner(text: String, color := Color.WHITE) -> void:
+	Audio.banner(text)                 # отсчёт, «Бой!», волны, раунды — свои звуки
 	_banner.text = text
 	_banner.add_theme_color_override("font_color", color)
 	_banner.visible = true
@@ -166,8 +171,55 @@ func hide_hint() -> void:
 		_hint_tw.kill()
 	_hint.visible = false
 
+# Жизни на Арене: сердечко и число (вдвоём — общие)
+func set_lives(n: int, shared := false) -> void:
+	if _lives == null:
+		_lives = Control.new()
+		_lives.position = Vector2(178, 36)                     # рядом с кнопкой «Меню»
+		_lives.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_lives)
+		var h := RunShop.heart(12.0, Color(0.95, 0.25, 0.32))
+		h.position = Vector2(14, 14)
+		_lives.add_child(h)
+		var hl := RunShop.heart(6.0, Color(1.0, 0.65, 0.70))
+		hl.position = Vector2(9, 9)
+		_lives.add_child(hl)
+		_lives_l = Label.new()
+		_lives_l.position = Vector2(32, -2)
+		_lives_l.size = Vector2(120, 32)
+		_lives_l.add_theme_font_size_override("font_size", 24)
+		_lives_l.add_theme_constant_override("outline_size", 6)
+		_lives_l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+		_lives.add_child(_lives_l)
+	_lives_l.text = "×%d%s" % [n, " общие" if shared else ""]
+
+# Короткая подсказка под полосой босса: одна строка, гаснет сама
+func show_tip(text: String, time := 5.0) -> void:
+	if _tip == null:
+		var w := Config.screen(self).x
+		_tip = _make_label(Vector2(w / 2 - 300, 156), Vector2(600, 26), 17)
+		_tip.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6))
+		_tip.add_theme_constant_override("outline_size", 5)
+		_tip.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	if _tip_tw and _tip_tw.is_valid():
+		_tip_tw.kill()
+	_tip.text = text + "   (подробнее — в паузе)"
+	_tip.visible = true
+	_tip.modulate.a = 1.0
+	_tip_tw = _tip.create_tween()
+	_tip_tw.tween_interval(time)
+	_tip_tw.tween_property(_tip, "modulate:a", 0.0, 0.6)
+	_tip_tw.tween_callback(func(): _tip.visible = false)
+
+func hide_tip() -> void:
+	if _tip_tw and _tip_tw.is_valid():
+		_tip_tw.kill()
+	if _tip:
+		_tip.visible = false
+
 # Монеты в правом верхнем углу (Арена)
 func show_coins() -> void:
+	Audio.coins()
 	if coins == null:
 		coins = CoinBadge.corner(self)
 	coins.refresh()

@@ -24,6 +24,7 @@ var chill := 0.0             # ледяная стрела/осколок: по�
 var burn_t := 0.0            # огненный шар: поджигает на столько секунд
 var on_hit := Callable()     # своя реакция на попадание по врагу (искры Зарницы)
 var poison := 0.0            # зелёная крышка Пивозавра: отравляет на столько секунд
+var glyph := ""             # буква на чернильной капле Летописца (стиль ink)
 var _life := 3.0
 
 func _ready() -> void:
@@ -65,6 +66,8 @@ func _physics_process(delta: float) -> void:
 			_vis2.get_child(0).rotation += delta * 6.0
 		elif style == "shuriken":
 			_vis2.rotation = _life * 22.0           # сюрикен крутится
+		elif style == "vinyl":
+			_vis2.rotation = _life * 26.0           # пластинка вертится, как фрисби
 		elif style == "cap":
 			_vis2.rotation = _life * 18.0           # крышка кувыркается
 			_vis2.scale.y = 0.45 + 0.55 * absf(sin(_life * 20.0))
@@ -79,6 +82,8 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if body == shooter or body.get("shield_team") == team:
 		return                      # свой щит пропускает
+	if Util.shot_passes(body, self):
+		return                      # Арена: сквозь мостки и платформы — насквозь
 	# зеркальный кристалл отражает всегда, а лучики Призмы — ещё и от стен и блоков
 	if not body.has_method("take_damage") and (body.has_meta("mirror") or bounces > 0) and _bounce_cd <= 0.0:
 		if not body.has_meta("mirror"):
@@ -110,6 +115,8 @@ func _on_body_entered(body: Node) -> void:
 	elif body.has_method("hit"):
 		var point := global_position - direction * size
 		body.hit(point, direction, damage, blast, team, {"attacker": shooter})
+	if not body.has_method("take_damage"):
+		Audio.sfx("impact", global_position)
 	queue_free()
 
 # Детальные пули легенд
@@ -182,6 +189,50 @@ func _styled() -> void:
 			_vis2.add_child(ring)
 			_trail.width = 2.0
 			_trail.default_color = Color(0.85, 0.9, 1.0, 0.35)
+		"ink", "ink_dot":
+			# чернильная капля Летописца: тёмно-синяя капля с бликом, на ней — буква (буква не крутится)
+			var big := 2.0 if style == "ink_dot" else 1.0
+			var drop := Polygon2D.new()
+			drop.polygon = PackedVector2Array([Vector2(7, 0), Vector2(2, -4), Vector2(-4, -4.5), Vector2(-7, 0), Vector2(-4, 4.5), Vector2(2, 4)])
+			drop.scale = Vector2(big, big)
+			drop.color = Color(0.12, 0.18, 0.45)
+			_vis2.add_child(drop)
+			var hi := Polygon2D.new()
+			hi.polygon = Util.circle(1.6, 6)
+			hi.position = Vector2(2, -1.5) * big
+			hi.color = Color(0.60, 0.75, 1.0)
+			_vis2.add_child(hi)
+			if glyph != "":
+				var l := Label.new()
+				l.text = glyph
+				l.add_theme_font_size_override("font_size", 15 if style == "ink" else 28)
+				l.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0))
+				l.add_theme_constant_override("outline_size", 4)
+				l.add_theme_color_override("font_outline_color", Color(0.05, 0.08, 0.22))
+				l.position = Vector2(-6, -12) if style == "ink" else Vector2(-8, -24)
+				add_child(l)
+			_trail.width = 3.0 * big
+			_trail.default_color = Color(0.20, 0.30, 0.70, 0.45)
+		"usb":
+			# флешка с Arch Linux: тёмно-красный корпус, серебряный штекер, синий логотип и огонёк
+			var body := Polygon2D.new()
+			body.polygon = PackedVector2Array([Vector2(-7, -3), Vector2(3, -3), Vector2(3, 3), Vector2(-7, 3)])
+			body.color = Color(0.50, 0.08, 0.14)
+			_vis2.add_child(body)
+			var plug := Polygon2D.new()
+			plug.polygon = PackedVector2Array([Vector2(3, -2), Vector2(8, -2), Vector2(8, 2), Vector2(3, 2)])
+			plug.color = Color(0.82, 0.84, 0.88)
+			_vis2.add_child(plug)
+			var logo := Polygon2D.new()
+			logo.polygon = PackedVector2Array([Vector2(-3, 2), Vector2(-1.5, -2), Vector2(0, 2)])
+			logo.color = Color(0.10, 0.58, 0.85)
+			_vis2.add_child(logo)
+			var led := Polygon2D.new()
+			led.polygon = PackedVector2Array([Vector2(-6, -1), Vector2(-5, -1), Vector2(-5, 0), Vector2(-6, 0)])
+			led.color = Color(0.4, 1.0, 0.45)
+			_vis2.add_child(led)
+			_trail.width = 2.0
+			_trail.default_color = Color(0.62, 0.28, 0.82, 0.4)
 		"shuriken":
 			# сюрикен: четыре лезвия, вращается в полёте
 			var star := Polygon2D.new()
@@ -231,6 +282,78 @@ func _styled() -> void:
 			g2.set_color(0, Color(1, 1, 1, 0))
 			g2.set_color(1, Color(1, 1, 1, 1))
 			_trail.gradient = g2
+		"key":
+			# луч-скоба Привратницы: золотые скобки вокруг фиолетового ядра
+			for r in [[size * 0.75, Color(0.45, 0.25, 0.85, 0.55)], [size * 0.42, Color(0.80, 0.62, 1.0)], [size * 0.2, Color(1, 1, 1)]]:
+				var kc := Polygon2D.new()
+				kc.polygon = Util.circle(r[0], 12)
+				kc.color = r[1]
+				_vis2.add_child(kc)
+			for s in [-1.0, 1.0]:
+				var br := Line2D.new()
+				br.points = PackedVector2Array([Vector2(s * size * 0.55, -size * 0.95), Vector2(s * size * 0.95, -size * 0.95),
+						Vector2(s * size * 0.95, size * 0.95), Vector2(s * size * 0.55, size * 0.95)])
+				br.width = 2.0
+				br.default_color = Color(1.0, 0.82, 0.38)
+				_vis2.add_child(br)
+			_trail.width = size * 0.6
+			_trail.default_color = Color(1.0, 0.82, 0.38, 0.35)
+		"fist":
+			# ударная волна кулака Почти легенды: полупрозрачный кулак и дуга воздуха перед ним
+			var fc := color
+			var s := size
+			var wave := Line2D.new()
+			var wp := PackedVector2Array()
+			for i in 9:
+				var a := -1.0 + i * 0.25
+				wp.append(Vector2(cos(a) * s * 0.75, sin(a) * s * 0.9))
+			wave.points = wp
+			wave.width = maxf(3.0, s * 0.14)
+			wave.default_color = Color(fc.r, fc.g, fc.b, 0.55)
+			_vis2.add_child(wave)
+			var fist := Polygon2D.new()
+			fist.polygon = PackedVector2Array([Vector2(-s * 0.45, -s * 0.32), Vector2(s * 0.35, -s * 0.38), Vector2(s * 0.5, -s * 0.2),
+					Vector2(s * 0.5, s * 0.25), Vector2(s * 0.3, s * 0.38), Vector2(-s * 0.45, s * 0.32)])
+			fist.color = Color(fc.r, fc.g, fc.b, 0.8)
+			_vis2.add_child(fist)
+			for k in 3:
+				var kn := Line2D.new()
+				kn.points = PackedVector2Array([Vector2(s * 0.18, -s * 0.3 + k * s * 0.22), Vector2(s * 0.46, -s * 0.3 + k * s * 0.22)])
+				kn.width = 1.5
+				kn.default_color = fc.darkened(0.4)
+				_vis2.add_child(kn)
+			_trail.width = s * 0.5
+			_trail.default_color = Color(fc.r, fc.g, fc.b, 0.25)
+		"vinyl":
+			# пластинка DJ Климы: чёрный диск с бороздками, наклейка цвета жанра, блик
+			var lc := color
+			var disc := Polygon2D.new()
+			disc.polygon = Util.circle(size * 0.8, 18)
+			disc.color = Color(0.07, 0.07, 0.09)
+			_vis2.add_child(disc)
+			for rr in [0.62, 0.45]:
+				var gr := Line2D.new()
+				var gp := PackedVector2Array()
+				for i in 17:
+					gp.append(Vector2.from_angle(TAU * i / 16.0) * size * rr)
+				gr.points = gp
+				gr.width = 1.0
+				gr.default_color = Color(0.30, 0.30, 0.36)
+				_vis2.add_child(gr)
+			var lab := Polygon2D.new()
+			lab.polygon = Util.circle(size * 0.3, 10)
+			lab.color = lc
+			_vis2.add_child(lab)
+			var hole := Polygon2D.new()
+			hole.polygon = Util.circle(size * 0.08, 6)
+			hole.color = Color(0.05, 0.05, 0.06)
+			_vis2.add_child(hole)
+			var sh := Polygon2D.new()
+			sh.polygon = PackedVector2Array([Vector2(-size * 0.6, -size * 0.2), Vector2(-size * 0.2, -size * 0.62), Vector2(-size * 0.12, -size * 0.5), Vector2(-size * 0.5, -size * 0.1)])
+			sh.color = Color(1, 1, 1, 0.35)
+			_vis2.add_child(sh)
+			_trail.width = size * 0.4
+			_trail.default_color = Color(lc.r, lc.g, lc.b, 0.4)
 		"cap":
 			# крышка от бутылки: кружок с зубчатым краем своего цвета
 			var cc := color

@@ -295,8 +295,8 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if _stuck or body == shooter:
 		return
-	if is_instance_valid(shooter) and shooter is Player and shooter.is_bot and Util.is_one_way(body):
-		return                        # копья ботов пролетают сквозные платформы (не бьют себе под ноги)
+	if Util.is_one_way(body) and ((is_instance_valid(shooter) and shooter is Player and shooter.is_bot) or Util.arena_on(self)):
+		return                        # копья ботов (и все снаряды на Арене) пролетают сквозные платформы
 	if payload == "beam" and velocity.y < 0.0 and not body.has_method("take_damage"):
 		return                        # копья света взлетают сквозь потолки и цепляются только при падении
 	if body.has_method("take_damage"):

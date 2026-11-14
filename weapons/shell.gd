@@ -53,6 +53,8 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if _done or body == shooter or body.get("shield_team") == team:
 		return
+	if Util.shot_passes(body, self):
+		return
 	if body.has_method("take_damage"):
 		if body.team != team and not _hit.has(body):
 			_hit[body] = true

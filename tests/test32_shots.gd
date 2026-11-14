@@ -11,7 +11,7 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 func shot(name: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
 	print("shot ", name)
 func find(cls) :
 	for n in main.world.get_children():
@@ -55,7 +55,7 @@ func _process(_d: float) -> bool:
 		600: shot("13_mountain_split")
 		602: main.show_arena_setup()
 		612: shot("14_arena_setup")
-		614: find(ArenaSetup)._set_coop(true)
+		614: find(ArenaSetup)._pick_difficulty(false)      # сначала выбор сложности, потом — режим
 		620: shot("15_arena_setup_coop")
 		622:
 			main.sel = [0, 1]

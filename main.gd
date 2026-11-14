@@ -32,6 +32,7 @@ var kills := [0, 0]
 var round_over := true      # во время отсчёта и между раундами смерти не считаются
 var map_info := {}
 var duel_players: Array = []
+var arena_rules := "normal"     # режим Арены: normal, hard, rush
 var arena_coop := false
 var duel_opts := {"heal": false, "buffs": false, "mega": false, "sd": false, "sd_time": 120}
 var events: DuelEvents
@@ -48,6 +49,8 @@ func _ready() -> void:
 	pad.main = self
 	add_child(pad)
 	StorySettings.apply()
+	Fx.load_setting()                  # «Эффекты: полные / упрощённые»
+	Audio.setup(self)                          # музыка и звуки (core/audio.gd)
 	Save.load_game()
 	show_menu()
 
@@ -67,11 +70,28 @@ func _unhandled_input(event: InputEvent) -> void:
 					else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 # ---------- Экраны ----------
+# Живая заставка меню — одна на всю игру, на своём слое под экранами: при переходах
+# между экранами меню она не пересоздаётся, а время суток в ней идёт всегда
+var _menu_bg: CanvasLayer
+
+func _menu_backdrop() -> void:
+	if _menu_bg == null:
+		_menu_bg = CanvasLayer.new()
+		_menu_bg.layer = -10
+		add_child(_menu_bg)
+		var sc := MenuScene.new()
+		sc.setup(Config.screen(self))
+		_menu_bg.add_child(sc)
+		MenuScene.shared = sc
+	_menu_bg.visible = false                 # показывают её сами экраны (MenuScene.reveal)
+
 func _new_world() -> void:
+	_menu_backdrop()
 	if world:
 		remove_child(world)
 		world.queue_free()
 	world = Node2D.new()
+	world.set_meta("fx_world", true)      # одноразовые эффекты складываются в общий слой (Fx.host)
 	add_child(world)
 	score = [0, 0]
 	hud = null
@@ -85,6 +105,7 @@ func _fixed_camera() -> void:
 func show_menu() -> void:
 	_new_world()
 	mode = "menu"
+	Audio.music("menu")
 	_fixed_camera()
 	var menu := MainMenu.new()
 	menu.mode_chosen.connect(_on_mode_chosen)
@@ -113,6 +134,7 @@ func _on_mode_chosen(m: String) -> void:
 func show_story_slots() -> void:
 	_new_world()
 	mode = "story_slots"
+	Audio.music("menu")
 	_fixed_camera()
 	var screen := StorySlots.new()
 	screen.back_pressed.connect(show_menu)
@@ -133,6 +155,7 @@ func show_story_creator(slot: int) -> void:
 func start_story(slot: int, data: Dictionary) -> void:
 	_new_world()
 	mode = "story"
+	Audio.stop_music()
 	var sm := StoryMode.new()
 	sm.world = world
 	sm.slot = slot
@@ -143,6 +166,7 @@ func start_story(slot: int, data: Dictionary) -> void:
 func _show_screen(screen: CanvasLayer) -> void:
 	_new_world()
 	mode = "screen"
+	Audio.music("shop" if screen is ShopScreen else "menu")     # у Лавки своя музыка
 	_fixed_camera()
 	screen.back_pressed.connect(show_menu)
 	world.add_child(screen)
@@ -151,6 +175,7 @@ func _show_screen(screen: CanvasLayer) -> void:
 func show_duel_setup(on_legends := false) -> void:
 	_new_world()
 	mode = "duel_setup"
+	Audio.music("menu")
 	_fixed_camera()
 	var screen := DuelSetup.new()
 	screen.wins = wins_needed
@@ -177,13 +202,15 @@ func _on_duel_ready(id: String, wins: int, kills_to_win: int, chosen: Array, opt
 func show_arena_setup() -> void:
 	_new_world()
 	mode = "arena_setup"
+	Audio.music("menu")
 	_fixed_camera()
 	var screen := ArenaSetup.new()
 	screen.coop = arena_coop
+	screen.rules = arena_rules
 	screen.sel = sel.duplicate()
-	screen.start_pressed.connect(func(coop: bool, wave: int, chosen: Array):
+	screen.start_pressed.connect(func(coop: bool, wave: int, chosen: Array, rules: String):
 		sel = chosen.duplicate()
-		start_arena(coop, wave))
+		start_arena(coop, wave, rules))
 	screen.back_pressed.connect(show_menu)
 	world.add_child(screen)
 
@@ -199,6 +226,7 @@ func start_duel() -> void:
 func _start_round() -> void:
 	_new_world()
 	mode = "duel"
+	Audio.duel(map_id, round_num)
 	kills = [0, 0]
 	round_over = true
 	var info := Maps.build(world, map_id)
@@ -229,12 +257,14 @@ func _start_round() -> void:
 	cam.targets = [p1, p2]
 	cam.min_zoom = info.get("min_zoom", 0.0)
 	world.add_child(cam)
-	# на огромных картах экран делится, когда игроки далеко друг от друга
-	if info.get("split", false):
+	# на больших картах экран делится, когда оба уже не помещаются в общий кадр
+	if SplitView.wanted(info, cam.play_size()):
+		cam.min_zoom = maxf(cam.min_zoom, SplitView.SPLIT_ZOOM)
 		var sv := SplitView.new()
 		sv.players = [p1, p2]
-		sv.bounds = Rect2(Vector2.ZERO, size)
+		sv.bounds = cam.bounds
 		sv.open_top = info["open_top"]
+		sv.shared = cam
 		world.add_child(sv)
 	TouchControls.build_panel(world, true)
 	p1.ui = TouchControls.build(world, "p1", "left", p1)
@@ -301,6 +331,7 @@ func _next_round() -> void:
 
 func _show_match_end(winner: int) -> void:
 	hud.hide_banner()
+	Audio.music("menu")
 	var screen := MatchEnd.new()
 	screen.winner = winner
 	screen.rounds = round_wins
@@ -320,10 +351,11 @@ func _after(time: float, fn: Callable) -> void:
 	t.start()
 
 # ---------- Режим: Арена ----------
-func start_arena(coop: bool, wave: int) -> void:
+func start_arena(coop: bool, wave: int, rules := "normal") -> void:
 	_new_world()
 	mode = "arena"
 	arena_coop = coop
+	arena_rules = rules
 	hud = Hud.new()
 	hud.menu_pressed.connect(open_pause)
 	world.add_child(hud)
@@ -333,22 +365,30 @@ func start_arena(coop: bool, wave: int) -> void:
 	arena.coop = coop
 	arena.chars = sel.duplicate()
 	arena.start_wave = wave
+	arena.rules = rules
 	arena.finished.connect(_on_arena_finished)
 	world.add_child(arena)
 	arena.start()
 
 func _on_arena_finished(victory: bool, waves_done: int, gold: int) -> void:
+	Audio.music("menu")
 	var screen := MatchEnd.new()
 	screen.title_text = "Победа!" if victory else "Поражение"
 	screen.title_color = Color(1.0, 0.85, 0.3) if victory else Color(1.0, 0.4, 0.35)
-	screen.sub_text = "Пройдено волн: %d из %d   ·   Золото: +%d" % [waves_done, ArenaMode.TOTAL_WAVES, gold]
+	var key := ArenaMode.key_for(arena_rules, arena_coop)
+	var p0 := Save.arena_progress(key)
+	if arena_rules.ends_with("rush"):
+		var rw := ArenaMode.rush_waves(arena_rules.begins_with("hard"))
+		var won := rw.filter(func(x): return x <= waves_done).size()
+		screen.sub_text = "Босс-раш: побеждено %d из %d   ·   Золото: +%d" % [won, rw.size(), gold]
+	else:
+		screen.sub_text = "%sПройдено волн: %d из %d   ·   Золото: +%d" % ["Сложный режим · " if arena_rules.begins_with("hard") else "", waves_done, ArenaMode.max_wave(arena_rules.begins_with("hard")), gold]
 	if not victory:
-		screen.sub_text += "\nМожно продолжить с волны %d" % (waves_done + 1)
+		screen.sub_text += "\nМожно продолжить с волны %d" % int(p0.get("wave", waves_done + 1))
 	screen.show_maps = false
-	var key := "coop" if arena_coop else "solo"
 	screen.again_pressed.connect(func():
 		var p := Save.arena_progress(key)
-		start_arena(arena_coop, int(p.get("wave", 1))))
+		start_arena(arena_coop, int(p.get("wave", ArenaMode.first_rush_wave() if arena_rules.ends_with("rush") else 1)), arena_rules))
 	screen.menu_pressed.connect(show_menu)
 	world.add_child(screen)
 

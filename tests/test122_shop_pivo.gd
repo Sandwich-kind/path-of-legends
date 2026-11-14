@@ -24,17 +24,19 @@ func _physics_process(_d: float) -> bool:
 				if o.get("kind", "") == "hero" and Characters.LIST[o["idx"]]["name"] == "ПИВОЗАВР":
 					j = i
 			print("pivo offer slot=", j)
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/shop_shelf.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/shop_shelf.png")
 			if j >= 0:
 				s._open_offer(j)
-		40: root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/shop_pivo.png")
+		40:
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/shop_pivo.png")
 		45:
 			Save.unlock_all_heroes()
 			main._on_mode_chosen("inventory")
 		50: find(InventoryScreen)._select_hero(14)
-		65: root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_pivo.png")
+		65:
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_pivo.png")
 		66: find(InventoryScreen)._select_hero(13)
 		80:
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_rassvet.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_rassvet.png")
 			return true
 	return false

@@ -53,7 +53,7 @@ func weapon(delta: float, shoot: bool) -> void:
 		return
 	p.bullet_style = "spark"
 	var b := p._shoot_bullet(p.bullet_speed, p.bullet_damage, 0.0, p.bullet_size, randf_range(-0.03, 0.03))
-	b.color = SPARK
+	b.color = Skins.col(p, SPARK)
 	b.on_hit = _spark_hit
 	if rapid and p.is_mega("rapid"):
 		b.pierce = 2
@@ -80,17 +80,16 @@ func _spark_hit(victim: Node) -> void:
 		if d < bd:
 			bd = d
 			best = e
-	Fx.zap(world, from, BOLT, 24.0)
+	Fx.zap(world, from, Skins.col(p, BOLT), 24.0)
 	if best == null:
 		return
-	Fx.bolt(world, from, best.hurt_center(), BOLT)
-	Fx.bolt(world, from, best.hurt_center(), SPARK)
+	Fx.bolt(world, from, best.hurt_center(), Skins.col(p, BOLT))
+	Fx.bolt(world, from, best.hurt_center(), Skins.col(p, SPARK))
 	best.take_damage(int(p.bullet_damage * 1.2), p)
-	Fx.zap(world, best.hurt_center(), BOLT, 26.0)
+	Fx.zap(world, best.hurt_center(), Skins.col(p, BOLT), 26.0)
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or _dash_t > 0.0:
 		return
 	if ab == "storm_dash" and _second_t > 0.0 and not _second_used:
@@ -153,7 +152,7 @@ func _gale(mega: bool) -> void:
 		var rel: Vector2 = n.global_position - o
 		if rel.x * p.facing < -40.0 or absf(rel.x) > reach + 40.0 or absf(rel.y) > half_h + 40.0:
 			continue
-		Fx.sparks(world, n.global_position, Color(0.85, 0.92, 1.0), 5, 180.0, 3.0)
+		Fx.sparks(world, n.global_position, Skins.col(p, Color(0.85, 0.92, 1.0)), 5, 180.0, 3.0)
 		n.queue_free()
 	if mega:
 		var w := WindWall.new()
@@ -204,7 +203,7 @@ func _dash() -> void:
 	p._forced_no_gravity = false
 	p.velocity.y = _dash_dir.y * DASH_SPEED
 	p._anim("cast")
-	Fx.zap(p.get_parent(), p.global_position, BOLT, 30.0)
+	Fx.zap(p.get_parent(), p.global_position, Skins.col(p, BOLT), 30.0)
 
 func _end_dash() -> void:
 	_dash_t = 0.0
@@ -218,7 +217,7 @@ func _end_dash() -> void:
 	trail.b = p.global_position
 	trail.life = 2.2 if Balance.arena(p) else 1.3
 	world.add_child(trail)
-	Fx.zap(world, p.global_position, BOLT, 30.0)
+	Fx.zap(world, p.global_position, Skins.col(p, BOLT), 30.0)
 
 # ---------- Ульта: Око бури ----------
 func ult() -> void:
@@ -247,7 +246,7 @@ func _physics_process(delta: float) -> void:
 		_dash_t -= delta
 		p.velocity.y = _dash_dir.y * DASH_SPEED - p.gravity * delta
 		if randf() < 0.7:
-			Fx.sparks(p.get_parent(), p.global_position + Vector2(randf_range(-10, 10), randf_range(-20, 20)), SPARK, 1, 80.0, 3.0)
+			Fx.sparks(p.get_parent(), p.global_position + Vector2(randf_range(-10, 10), randf_range(-20, 20)), Skins.col(p, SPARK), 1, 80.0, 3.0)
 		if _dash_t <= 0.0:
 			_end_dash()
 	_glide(delta)
@@ -262,7 +261,7 @@ func _glide(delta: float) -> void:
 		_glide_fx -= delta
 		if _glide_fx <= 0.0:
 			_glide_fx = 0.09
-			Fx.sparks(p.get_parent(), p.global_position + Vector2(randf_range(-22, 22), -p.body_size.y / 2 - 26.0), Color(0.85, 0.92, 1.0, 0.8), 1, 50.0, 2.5)
+			Fx.sparks(p.get_parent(), p.global_position + Vector2(randf_range(-22, 22), -p.body_size.y / 2 - 26.0), Skins.col(p, Color(0.85, 0.92, 1.0, 0.8)), 1, 50.0, 2.5)
 	if want != _gliding:
 		_gliding = want
 		_show_canopy(want)
@@ -280,7 +279,7 @@ func _show_canopy(on: bool) -> void:
 			var a := PI + PI * i / 12.0
 			pts.append(Vector2(0, top + 18) + Vector2.from_angle(a) * Vector2(46, 34))
 		fan.polygon = pts
-		fan.color = Color(0.30, 0.42, 0.78, 0.95)
+		fan.color = Skins.col(p, Color(0.30, 0.42, 0.78, 0.95))
 		_canopy.add_child(fan)
 		var edge := Line2D.new()
 		var ep := PackedVector2Array()
@@ -289,19 +288,19 @@ func _show_canopy(on: bool) -> void:
 			ep.append(Vector2(0, top + 18) + Vector2.from_angle(a) * Vector2(46, 34))
 		edge.points = ep
 		edge.width = 3.0
-		edge.default_color = Color(0.95, 0.80, 0.35)
+		edge.default_color = Skins.col(p, Color(0.95, 0.80, 0.35))
 		_canopy.add_child(edge)
 		for i in 7:
 			var a := PI + PI * (i + 0.5) / 7.0 + 0.0
 			var rib := Line2D.new()
 			rib.points = PackedVector2Array([Vector2(0, top + 18), Vector2(0, top + 18) + Vector2.from_angle(a) * Vector2(44, 32)])
 			rib.width = 1.5
-			rib.default_color = Color(0.20, 0.16, 0.20, 0.8)
+			rib.default_color = Skins.col(p, Color(0.20, 0.16, 0.20, 0.8))
 			_canopy.add_child(rib)
 		var zig := Line2D.new()          # молния на веере
 		zig.points = PackedVector2Array([Vector2(-8, top - 8), Vector2(2, top + 2), Vector2(-3, top + 4), Vector2(8, top + 14)])
 		zig.width = 2.5
-		zig.default_color = Color(1.0, 0.92, 0.45)
+		zig.default_color = Skins.col(p, Color(1.0, 0.92, 0.45))
 		_canopy.add_child(zig)
 		p.add_child(_canopy)
 	_canopy.visible = on

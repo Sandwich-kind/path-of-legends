@@ -13,6 +13,10 @@ extends Node
 #     20 с тьма начинает понемногу вытягивать жизнь (чем дальше, тем сильнее).
 #     «Цитадель во тьме» — из тьмы встаёт Воплощение Тьмы (неуязвимое) и бьёт
 #     МЕГА-атаками по обоим игрокам; уворачиваться можно, но всё яростнее.
+#     Карты со своей «Мгновенной смертью» (info["doom"] — кто её устраивает):
+#     «Замки» — осада: пушки замков бьют по чужакам, мост горит (maps/castles.gd);
+#     «Экспресс» — поезд въезжает в тоннели: кто на крыше — сметает (maps/train.gd).
+#     Летающие острова и Деревня в огне — см. RiftDoom.
 
 const HEAL_EVERY := 10.0
 const BUFF_EVERY := 14.0
@@ -45,6 +49,8 @@ var _drain_t := 0.0
 var _gale_t := 0.0
 var _gale_dir := 1.0
 var _avatar: DarkAvatar
+var _special: Node                # своя «Мгновенная смерть» карты (осада, тоннели)
+var _rift: RiftDoom                # земли Странника: острова рушатся / огненный вал
 const DRAIN_AFTER := 20.0
 
 func _ready() -> void:
@@ -107,6 +113,8 @@ func _drop(key: String) -> Pickup:
 		if hit.is_empty():
 			continue
 		var land: Vector2 = hit["position"] - Vector2(0, 34)
+		if land.y > info.get("spawn_max_y", INF):
+			continue
 		if lava_y < INF and land.y > lava_y - 60:
 			continue
 		var p := Pickup.new()
@@ -149,7 +157,9 @@ func _start_doom() -> void:
 			"arena_jungle": "Бомбы гоблинов!", "arena_jungle_night": "Бомбы гоблинов!",
 			"arena_caves": "Обвал!", "arena_kingdom": "Обвал!",
 			"arena_ice": "Ледопад!", "arena_storm": "Гнев бури!", "arena_lava": "Вулкан проснулся!",
-			"arena_throne": "Пламя бездны!", "arena_citadel": "Воплощение Тьмы пробуждается!"}
+			"arena_throne": "Пламя бездны!", "arena_citadel": "Воплощение Тьмы пробуждается!",
+			"castles": "Осада! Пушки замков заговорили!", "train": "Впереди тоннели!"}
+	names.merge(RiftDoom.names())
 	hud.show_banner("МГНОВЕННАЯ СМЕРТЬ!", Color(1.0, 0.3, 0.25))
 	var t := create_tween()
 	t.tween_interval(1.3)
@@ -159,6 +169,9 @@ func _start_doom() -> void:
 	_doom_t = 1.5
 	if map_id == "mountain":
 		_make_lava()
+	if info.has("doom"):
+		_special = (info["doom"] as Callable).call(self)
+	_rift = RiftDoom.start(self)
 	if map_id == "arena_citadel":
 		_avatar = DarkAvatar.new()
 		_avatar.duel = true
@@ -171,8 +184,8 @@ func _doom_step(delta: float) -> void:
 		_chaos(delta)
 		_drain(delta)
 	match map_id:
-		"arena_citadel":
-			pass                                  # всё делает Воплощение Тьмы
+		"arena_citadel", "castles", "train":
+			pass                                  # всё делает Воплощение Тьмы / своя «Мгновенная смерть» карты
 		"arena_ice":
 			if _doom_t <= 0.0:
 				_doom_t = maxf(0.25, 0.7 - _doom_age * 0.01)
@@ -469,6 +482,10 @@ func _rock() -> void:
 
 # Куда возрождаться, когда снизу лава: в небо над вершиной, на парашюте
 func safe_spawn(r: Dictionary, p: Player) -> Dictionary:
+	if _special and is_instance_valid(_special) and _special.has_method("safe_spawn"):
+		r = _special.safe_spawn(r, p)
+	if map_id in RiftDoom.MAPS:
+		return RiftDoom.safe_spawn(self, r, p)
 	if lava_y == INF:
 		return r
 	# Пока течёт лава — только на вершину, на твёрдый камень выше лавы, без парашюта.

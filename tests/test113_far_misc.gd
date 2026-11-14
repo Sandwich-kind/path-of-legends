@@ -27,13 +27,13 @@ func _physics_process(_d: float) -> bool:
 			bs = find(BestiaryScreen)
 			bs._tab_btns[8].pressed.emit()
 		25:
-			root.get_viewport().get_texture().get_image().save_png(shots + "best_ice.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "best_ice.png")
 			bs._tab_btns[14 - 3].pressed.emit()
 		35:
-			root.get_viewport().get_texture().get_image().save_png(shots + "best_throne.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "best_throne.png")
 			bs._tab_btns[10].pressed.emit()
 		45:
-			root.get_viewport().get_texture().get_image().save_png(shots + "best_lava.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "best_lava.png")
 			# карты Дуэли дальних земель строятся без ошибок
 			for id in ["arena_ice", "arena_storm", "arena_lava", "arena_throne"]:
 				var w := Node2D.new()
@@ -57,7 +57,7 @@ func _physics_process(_d: float) -> bool:
 			arena._boss.take_damage(99999999, arena.players[0])
 		if arena.wave == 61 and arena._state == "fight" and not has_meta("jumped"):
 			set_meta("jumped", true)
-			root.get_viewport().get_texture().get_image().save_png(shots + "trans_61.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "trans_61.png")
 			print("wave 61 started on stage ", arena.stage, " — переходим к волне 80")
 			main.start_arena(false, 80)
 			arena = find(ArenaMode)

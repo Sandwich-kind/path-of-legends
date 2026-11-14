@@ -53,50 +53,17 @@ static func build(world: Node, prefix: String, side: String, p: Player = null) -
 	if not Config.can_touch():
 		return ind
 	var vs := Config.screen(world)
-	var W := vs.x
-	var BTN := Config.BTN
 	var root := _root(world, 5)
-	var yt := vs.y - Config.PANEL + 6.0       # верхний ряд
-	var yb := yt + BTN + 6.0                  # нижний ряд
-	var b := Vector2(BTN, BTN)
 	var stick := use_stick()
-	# [действие, x, y, подпись, размер] — координаты для левой половины
-	var actions := [
-			["a1", 300.0, yt, "1", b], ["a2", 368.0, yt, "2", b],
-			["a3", 436.0, yt, "3", b], ["ult", 504.0, yt, "U", b],
-			["reload", 300.0, yb, "R", b], ["shoot", 368.0, yb, "*", Vector2(BTN * 3 + 12, BTN)]]
-	if stick:
-		actions.append(["jump", 572.0, yb, "^", b])     # со стиком прыжок — ещё и отдельной кнопкой (рядом с атакой)
-	if side == "right":
-		for a in actions:
-			a[1] = W - a[1] - a[4].x      # зеркально у центра
-	elif side == "solo":
-		for a in actions:
-			a[1] = W - 10.0 - (a[1] - 300.0) - a[4].x   # зеркально у правого края
-	# движение: крестовина-кнопки или виртуальный стик
+	var g := geometry(vs, side, stick, true)
+	var actions: Array = g["actions"]
 	var moves := []
 	var ui := {}
 	if not stick:
-		# крестовина: вверх — над, вниз — под кнопками влево/вправо.
-		# На двоих она не должна залезать на половину соседа — тогда чуть меньше.
-		var room := INF
-		if side != "solo":
-			room = W / 2.0 - 10.0 - 280.0
-		var cell := dpad_cell(room)
-		var cw := cell * 3.0 + DPAD_GAP * 2.0
-		var x0 := 10.0 if side != "right" else W - 10.0 - cw      # игроку 2 — у правого края, без зеркала
-		var top := vs.y - 8.0 - cw
-		ui.merge(add_dpad(root, prefix, Vector2(x0, top), cell))
-		# способности сдвигаются, чтобы не лечь на большую крестовину
-		var shift := maxf(0.0, cw + 24.0 - 300.0)
-		if shift > 0.0:
-			for a in actions:
-				a[1] += shift * (-1.0 if side == "right" else 1.0) if side != "solo" else 0.0
+		var dr: Rect2 = g["dpad"]
+		ui.merge(add_dpad(root, prefix, dr.position, float(g["cell"])))
 	else:
-		var area := Rect2(0, yt - 150.0, 226.0, vs.y - yt + 150.0)
-		if side == "right":
-			area.position.x = W - area.size.x
-		add_stick(root, prefix, area)
+		add_stick(root, prefix, g["stick"])
 	# у легенд на кнопках нарисованы их способности и оружие (у тестовых — цифры)
 	var icons := {}
 	if p and p.kit:
@@ -112,6 +79,90 @@ static func build(world: Node, prefix: String, side: String, p: Player = null) -
 		ui[a[0]] = _make_button(root, prefix + "_" + a[0], Vector2(a[1], a[2]), label, a[4])
 	ui["_ind"] = ind
 	return ui
+
+# ---------- Раскладка кнопок ----------
+# Где стоят кнопки: [действие, x, y, подпись, размер], прямоугольник крестовины (и её клетка)
+# или область стика. with_custom — с учётом своей раскладки игрока (редактор в настройках).
+static func geometry(vs: Vector2, side: String, stick: bool, with_custom := true) -> Dictionary:
+	var W := vs.x
+	var BTN := Config.BTN
+	var yt := vs.y - Config.PANEL + 6.0       # верхний ряд
+	var yb := yt + BTN + 6.0                  # нижний ряд
+	var b := Vector2(BTN, BTN)
+	# [действие, x, y, подпись, размер] — координаты для левой половины
+	var actions := [
+			["a1", 300.0, yt, "1", b], ["a2", 368.0, yt, "2", b],
+			["a3", 436.0, yt, "3", b], ["ult", 504.0, yt, "U", b],
+			["reload", 300.0, yb, "R", b], ["shoot", 368.0, yb, "*", Vector2(BTN * 3 + 12, BTN)]]
+	if stick:
+		actions.append(["jump", 572.0, yb, "^", b])     # со стиком прыжок — ещё и отдельной кнопкой (рядом с атакой)
+	if side == "right":
+		for a in actions:
+			a[1] = W - a[1] - a[4].x      # зеркально у центра
+	elif side == "solo":
+		for a in actions:
+			a[1] = W - 10.0 - (a[1] - 300.0) - a[4].x   # зеркально у правого края
+	var res := {"actions": actions}
+	if not stick:
+		# крестовина: вверх — над, вниз — под кнопками влево/вправо.
+		# На двоих она не должна залезать на половину соседа — тогда чуть меньше.
+		var room := INF
+		if side != "solo":
+			room = W / 2.0 - 10.0 - 280.0
+		var cell := dpad_cell(room)
+		var cw := cell * 3.0 + DPAD_GAP * 2.0
+		var x0 := 10.0 if side != "right" else W - 10.0 - cw      # игроку 2 — у правого края, без зеркала
+		var top := vs.y - 8.0 - cw
+		res["dpad"] = Rect2(x0, top, cw, cw)
+		res["cell"] = cell
+		# способности сдвигаются, чтобы не лечь на большую крестовину
+		var shift := maxf(0.0, cw + 24.0 - 300.0)
+		if shift > 0.0:
+			for a in actions:
+				a[1] += shift * (-1.0 if side == "right" else 1.0) if side != "solo" else 0.0
+	else:
+		var area := Rect2(0, yt - 150.0, 226.0, vs.y - yt + 150.0)
+		if side == "right":
+			area.position.x = W - area.size.x
+		res["stick"] = area
+	if with_custom:
+		var cust := custom(side)
+		for a in actions:
+			var r := _apply(Rect2(Vector2(a[1], a[2]), a[4]), a[0], cust, vs)
+			a[1] = r.position.x
+			a[2] = r.position.y
+			a[4] = r.size
+		if res.has("dpad"):
+			var d0: Rect2 = res["dpad"]
+			var d1 := _apply(d0, "dpad", cust, vs)
+			res["dpad"] = d1
+			res["cell"] = float(res["cell"]) * d1.size.x / d0.size.x
+		if res.has("stick"):
+			res["stick"] = _apply(res["stick"], "stick", cust, vs)
+	return res
+
+# Своя раскладка: {ключ: [центр x (доля экрана), центр y (доля), масштаб]}
+static func custom(side: String) -> Dictionary:
+	return (Save.data.get("touch_layout", {}) as Dictionary).get(side, {})
+
+static func set_custom(side: String, d: Dictionary) -> void:
+	var all: Dictionary = Save.data.get("touch_layout", {})
+	if d.is_empty():
+		all.erase(side)
+	else:
+		all[side] = d
+	Save.data["touch_layout"] = all
+	Save.save_game()
+
+static func _apply(r: Rect2, key: String, cust: Dictionary, vs: Vector2) -> Rect2:
+	if not cust.has(key):
+		return r
+	var c: Array = cust[key]
+	var sz := r.size * clampf(float(c[2]), 0.5, 2.0)
+	var center := Vector2(float(c[0]) * vs.x, float(c[1]) * vs.y)
+	var out := Rect2(center - sz / 2.0, sz)
+	out.position = out.position.clamp(Vector2.ZERO, (vs - out.size).max(Vector2.ZERO))
+	return out
 
 # ---------- Крестовина ----------
 const DPAD_CELL := 74.0        # кнопка крестовины при размере 100%

@@ -13,12 +13,12 @@ func _physics_process(_d: float) -> bool:
 	f += 1
 	if f == 3:
 		main.sel = [1, 0]
-		main.start_arena()
+		main.start_arena(false, 1)
 		for n in main.world.get_children():
 			if n is ArenaMode: arena = n
 	if arena == null or f < 10:
 		return false
-	var p: Player = arena.player
+	var p: Player = arena.players[0]
 	for a in ["p1_left", "p1_right", "p1_jump", "p1_shoot", "p1_a1", "p1_a2", "p1_a3", "p1_ult"]:
 		Input.action_release(a)
 	if is_instance_valid(p) and p.is_alive() and not p.frozen:
@@ -51,9 +51,11 @@ func _physics_process(_d: float) -> bool:
 		if p.hp < last_hp:
 			dmg_log[arena.wave] = dmg_log.get(arena.wave, 0) + (last_hp - p.hp)
 		last_hp = p.hp
-	if arena._state == "over" or f > 60 * 60 * 20:
-		print("1 ", 1, " RESULT wave=", arena.wave, " lives=", arena.lives, " kills=", arena.kills,
-				" time=", f / 60, "s state=", arena._state)
+	# короткий прогон: за 3 минуты игры автоигрок должен пройти хотя бы первые волны
+	# (полный замер баланса — tests/sim_arena.gd)
+	if arena._state == "over" or f > 60 * 60 * 3:
+		var ok: bool = arena.wave >= 3 or arena._state == "over"
+		print("%s auto-player made progress: wave %d, lives %d, kills %d, state %s" % ["ok  " if ok else "FAIL", arena.wave, arena.lives, arena.kills, arena._state])
 		print("   damage taken per wave: ", dmg_log)
 		return true
 	return false

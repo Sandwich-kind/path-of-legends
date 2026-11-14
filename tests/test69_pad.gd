@@ -25,7 +25,7 @@ func axis(a: int, v: float, dev := 0) -> void:
 
 func snap(n: String) -> void:
 	if shots != "":
-		root.get_viewport().get_texture().get_image().save_png(shots + "/" + n + ".png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "/" + n + ".png")
 
 func _process(_d: float) -> bool:
 	f += 1

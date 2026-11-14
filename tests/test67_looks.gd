@@ -45,6 +45,6 @@ func _initialize() -> void:
 func _process(_d: float) -> bool:
 	f += 1
 	if f == 30:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/looks.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/looks.png")
 		return true
 	return false

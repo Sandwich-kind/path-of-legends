@@ -103,7 +103,16 @@ func _add_labels(col: Control, slot: int, cx: float, top: float) -> void:
 	mega.pressed.connect(_toggle_mega.bind(slot))
 	mega.visible = false
 	col.add_child(mega)
-	_slots.append({"name": name_lbl, "holder": holder, "cx": cx, "top": top, "mega": mega})
+	# «Облик»: каталог скинов выбранной легенды
+	var skin := Button.new()
+	skin.text = "Облик"
+	skin.position = Vector2(cx - 80, top + 96)
+	skin.size = Vector2(160, 50)
+	skin.add_theme_font_size_override("font_size", 22)
+	skin.pressed.connect(_open_skins.bind(slot))
+	skin.visible = false
+	col.add_child(skin)
+	_slots.append({"name": name_lbl, "holder": holder, "cx": cx, "top": top, "mega": mega, "skin": skin})
 
 # Деревянный подъёмник: площадка на канатах, уходящих к люку в потолке
 func _build_lift(col: Control, cx: float, vs: Vector2) -> void:
@@ -160,6 +169,12 @@ func _mega_style(b: Button, on: bool) -> void:
 	b.add_theme_color_override("font_hover_color", Color(1.0, 0.95, 0.6) if on else Color(0.85, 0.82, 0.9))
 	b.text = "МЕГА: ВКЛ" if on else "МЕГА: ВЫКЛ"
 
+func _open_skins(slot: int) -> void:
+	var cat := SkinCatalog.new()
+	cat.hero = sel[slot]
+	cat.closed.connect(_refresh)
+	add_child(cat)
+
 func _refresh() -> void:
 	var all_open := true
 	for i in _slots.size():
@@ -167,10 +182,29 @@ func _refresh() -> void:
 		var open := Characters.unlocked(sel[i])
 		all_open = all_open and open
 		s["name"].text = Characters.LIST[sel[i]]["name"] if open else "???"
+		# прошёл сложную Арену — золотое имя и отметка «Чемпион»
+		var champ: bool = open and sel[i] in Save.hard_heroes()
+		s["name"].add_theme_color_override("font_color", Color(1.0, 0.82, 0.35) if champ else Color(1, 1, 1))
+		var crown: Node = s["name"].get_node_or_null("Crown")
+		if champ and crown == null:
+			var cp := Polygon2D.new()                      # золотая корона над именем
+			cp.name = "Crown"
+			cp.polygon = PackedVector2Array([Vector2(-16, 0), Vector2(-16, -14), Vector2(-8, -6), Vector2(0, -18), Vector2(8, -6), Vector2(16, -14), Vector2(16, 0)])
+			cp.color = Color(1.0, 0.82, 0.35)
+			cp.position = Vector2(180, -2)
+			s["name"].add_child(cp)
+		elif not champ and crown:
+			crown.queue_free()
 		var mb: Button = s["mega"]
 		mb.visible = open and Save.has_mega(Characters.LIST[sel[i]]["name"])
 		if mb.visible:
 			_mega_style(mb, Characters.mega_on[i])
+		var sb: Button = s["skin"]
+		sb.visible = open and not Skins.for_hero(sel[i]).is_empty()
+		var cur := Skins.selected(sel[i])
+		sb.text = "Облик" if cur == "" else "Облик: " + String(Skins.info(cur).get("name", ""))
+		sb.size.x = 160.0 if cur == "" else 300.0
+		sb.position.x = s["cx"] - sb.size.x / 2.0
 		for n in s["holder"].get_children():
 			n.queue_free()
 		var face := 1 if (count == 1 or i == 0) else -1

@@ -20,7 +20,7 @@ func _initialize() -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png(shots + "%s_%s.png" % [maps[mi], n])
+		if img: img.save_png(shots + "%s_%s.png" % [maps[mi], n])
 func _next() -> bool:
 	mi += 1
 	if mi >= maps.size():

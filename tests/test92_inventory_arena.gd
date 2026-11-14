@@ -16,9 +16,10 @@ func _physics_process(_d: float) -> bool:
 	match f:
 		5: main._on_mode_chosen("inventory")
 		10: find(InventoryScreen)._select_hero(0)
-		25: root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_hunter.png")
+		25:
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_hunter.png")
 		27: find(InventoryScreen)._select_hero(int(OS.get_environment("HERO")) if OS.get_environment("HERO") != "" else 6)
 		42:
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_mortis.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_mortis.png")
 			return true
 	return false

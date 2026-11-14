@@ -21,7 +21,7 @@ func _initialize() -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png(shots + "mech_w%d_%s.png" % [waves[wi], n])
+		if img: img.save_png(shots + "mech_w%d_%s.png" % [waves[wi], n])
 
 func _next() -> bool:
 	wi += 1

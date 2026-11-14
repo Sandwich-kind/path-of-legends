@@ -18,13 +18,13 @@ func _physics_process(_d: float) -> bool:
 	f += 1
 	if f == 3:
 		main.sel = [1, 0]
-		main.start_arena()
+		main.start_arena(false, 1)
 		for n in main.world.get_children():
 			if n is ArenaMode:
 				arena = n
 	if arena == null or f < 5:
 		return false
-	var p: Player = arena.player
+	var p: Player = arena.players[0]
 	if is_instance_valid(p):
 		p.hp = p.max_hp            # игрок бессмертен в тесте
 	# отмечаем способности ботов по снарядам на сцене

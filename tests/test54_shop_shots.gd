@@ -2,6 +2,7 @@ extends SceneTree
 # Скриншоты Солдата и Самурая, Лавка и кнопка МЕГА
 var main
 var f := 0
+var mega_j := 0
 var hi := -1
 var t0 := 0
 var held := {}
@@ -10,7 +11,7 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 func shot(name: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
 	print("shot ", name)
 func find(cls):
 	for n in main.world.get_children():
@@ -50,11 +51,18 @@ func _physics_process(_d: float) -> bool:
 		200: shot("k3_shop_mega")
 		202:
 			var sh = find(ShopScreen)
-			sh._open_offer(7)
+			mega_j = 0                                  # первый товар-МЕГА на полке (их порядок менялся)
+			for k in sh._offers.size():
+				if String(sh._offers[k].get("kind", "")) == "mega":
+					mega_j = k
+					break
+			if mega_j < sh._offers.size():
+				sh._open_offer(mega_j)
 		210: shot("k4_mega_offer")
 		212:
 			var sh = find(ShopScreen)
-			sh._buy(sh._offers[7])
+			if mega_j < sh._offers.size():              # на этой вкладке товара может не быть — тогда только снимок
+				sh._buy(sh._offers[mega_j])
 			print("gold after mega ", Save.gold(), " mega soldier ", Save.has_mega("СОЛДАТ"))
 		220:
 			main.show_duel_setup()

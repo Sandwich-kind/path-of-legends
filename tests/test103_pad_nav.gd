@@ -76,7 +76,7 @@ func _process(_d: float) -> bool:
 		"show":
 			print("   focus: ", focus_name(), "  paused=", paused)
 		"shot":
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % s[1])
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % s[1])
 		"start":
 			dpad(JOY_BUTTON_START)
 		"paused?":

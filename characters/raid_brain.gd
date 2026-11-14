@@ -9,8 +9,12 @@ extends Node
 #                       Пар из труб на спине, горящие глаза, земля трескается
 #                       под шагами.
 #                       Повергнутый, Колосс не умирает, а ПРОБУЖДАЕТСЯ (вторая фаза):
-#                       броня разлетается, в груди пылает огненное сердце, небо
-#                       над Колизеем горит и с него падают метеоры (InfernoSky).
+#                       броня трескается и разлетается кусками (шлем, нагрудник,
+#                       наплечники падают на песок) — остаётся железный остов,
+#                       в груди за рёбрами пылает ядро; небо над Колизеем горит
+#                       и с него падают метеоры (InfernoSky). После огненного
+#                       рывка и прыжка-метеора грудная клетка раскрывается —
+#                       удары спереди в открытое ядро бьют ×1,5.
 #                       Новые атаки: огненный рывок (за ним горит земля),
 #                       прыжок-метеор (тень с неба → удар и столбы пламени),
 #                       залп лавой и «Сверхновая» — после неё он выдыхается
@@ -28,8 +32,6 @@ var _disc: Node2D
 var _phase := 0
 var _vent_t := 0.0
 var _step_t := 0.0
-var _eye: Polygon2D
-var _core: Polygon2D
 var _t := 0.0
 var _crush_t := 0.0
 var _hide_t := 0.0             # ведьма в стае воронов / Владыка под трясиной
@@ -39,7 +41,6 @@ var _floor_y := 0.0
 # ----- Колосс: вторая фаза -----
 var _awake := false
 var _waking := false
-var _cracks: Node2D
 var _sky: Node2D
 var _ember_t := 0.0
 var _dash_t := 0.0
@@ -53,23 +54,22 @@ var _shadow: Node2D
 var _nova_t := 0.0
 var _nova_fx: Node2D
 var _rig_y := 0.0
+var _rig_rot := 0.0
+var _crack_level := 0
+var _chip_t := 0.0
+var _core_open_t := 0.0         # ядро открыто (после рывка и прыжка-метеора)
+var _core_note := -9.0
+var _spent := false             # после Сверхновой ядро погасло
 const NOVA_R := 440.0
 const NOVA_T := 2.4
+const CORE_MULT := 1.5          # урон спереди в открытое ядро
+const CORE_OPEN := 2.6          # сколько секунд ядро открыто
 
 func _ready() -> void:
 	name = "RaidBrain"
 	if kind == "colossus":
-		_eye = Polygon2D.new()
-		_eye.polygon = Util.circle(16.0, 12)
-		_eye.color = Color(1.0, 0.2, 0.1, 0.55)
-		_eye.z_index = 3
-		p.add_child.call_deferred(_eye)
-		_core = Polygon2D.new()
-		_core.polygon = Util.circle(26.0, 16)
-		_core.color = Color(1.0, 0.45, 0.15, 0.0)
-		_core.z_index = 3
-		p.add_child.call_deferred(_core)
 		p.on_lethal = _on_lethal              # смертельный удар — не конец: Колосс пробуждается
+		p.on_hurt = _on_hurt
 
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(p) or not p.is_alive():
@@ -85,6 +85,8 @@ func _physics_process(delta: float) -> void:
 			_colossus_awake(delta)
 		elif not _waking:
 			_colossus(delta)
+		elif _crack_level > 0:
+			_chips(delta)
 	if _hide_t > 0.0:
 		_hidden_tick(delta)
 	elif kind == "bog_lord" and fmod(_t, 0.4) < delta:
@@ -158,12 +160,6 @@ func _whirl_tick_fn(delta: float) -> void:
 # ---------- Колосс ----------
 func _colossus(delta: float) -> void:
 	var bs := p.body_size
-	# горящий глаз и ядро в груди
-	_eye.position = Vector2(p.facing * bs.x * 0.2, -bs.y * 0.36)
-	_eye.color.a = 0.45 + 0.25 * sin(_t * 5.0) + (0.2 if _phase >= 1 else 0.0)
-	_core.position = Vector2(p.facing * bs.x * 0.05, -bs.y * 0.12)
-	if _phase >= 2:
-		_core.color = Color(1.0, 0.5 + 0.2 * sin(_t * 9.0), 0.15, 0.55 + 0.2 * sin(_t * 7.0))
 	# пар из труб на спине (в перегреве — искры и огонь)
 	_vent_t -= delta
 	if _vent_t <= 0.0:
@@ -229,6 +225,8 @@ func _enter_phase() -> void:
 		p.front_armor = 0.6
 		p.back_mult = 1.5
 		p.set_tint(Color(1.25, 0.82, 0.75))
+		if p.rig and "core_heat" in p.rig:
+			p.rig.core_heat = 1.0                # ядро в нагруднике раскалилось
 		if p.summon.is_valid():
 			p.summon.call("fighter", 2, p.global_position)
 
@@ -270,41 +268,71 @@ func _start_awakening() -> void:
 	Util.flash(world, p.global_position, 260.0, Color(1.0, 0.9, 0.7, 0.9))
 	Fx.shake(world, 8.0)
 	if am:
-		am.cinematic(p, 4.3)                    # камера смотрит на Колосса, герои ждут
+		am.cinematic(p, 5.2)                    # камера смотрит на Колосса, герои ждут
 	_banner(am, "Колосс повержен…")
 	if p.rig:
 		p.rig.play("roar")
 	if p._rig_root:
 		_rig_y = p._rig_root.position.y
+		_rig_rot = p._rig_root.rotation
 		var kt := p._rig_root.create_tween()
 		kt.tween_property(p._rig_root, "rotation", -0.14 * p.facing, 0.7).set_trans(Tween.TRANS_SINE)
 		kt.parallel().tween_property(p._rig_root, "position:y", _rig_y + 22.0, 0.7)
-	p._after(1.2, _glow_cracks)
+	# броня трескается всё сильнее, сыплются осколки — и разлетается; встаёт железный остов
+	p._after(1.0, _shell_crack.bind(1))
+	p._after(1.7, _shell_crack.bind(2))
 	p._after(2.0, func(): _banner(am, "…но в груди у него горит огонь!"))
+	p._after(2.4, _shell_crack.bind(3))
 	p._after(3.0, _armor_burst)
-	p._after(3.6, _begin_phase2)
+	p._after(3.45, _endo_eyes)
+	p._after(3.75, _endo_core_on)
+	p._after(4.0, _endo_rise)
+	p._after(4.4, _endo_roar)
+	p._after(4.9, _begin_phase2)
 
-func _glow_cracks() -> void:
+# Броня трескается: огненные трещины на частях модели, дрожь, искры из швов
+func _shell_crack(level: int) -> void:
 	if not is_instance_valid(p):
 		return
-	var bs := p.body_size
-	_cracks = Node2D.new()
-	_cracks.z_index = 4
-	for k in 7:
-		var l := Line2D.new()
-		var x0 := randf_range(-bs.x * 0.35, bs.x * 0.35)
-		var y0 := randf_range(-bs.y * 0.4, bs.y * 0.3)
-		var pts := PackedVector2Array([Vector2(x0, y0)])
-		for i in 3:
-			pts.append(pts[pts.size() - 1] + Vector2(randf_range(-16, 16), randf_range(10, 22)))
-		l.points = pts
-		l.width = 3.0
-		l.default_color = Color(1.0, 0.6, 0.2, 0.0)
-		_cracks.add_child(l)
-		l.create_tween().tween_property(l, "default_color:a", 0.95, 0.4).set_delay(k * 0.1)
-	p.add_child(_cracks)
-	Fx.shake(p.get_parent(), 5.0)
-	Fx.sparks(p.get_parent(), p.global_position, Color(1.0, 0.6, 0.2), 14, 220.0, 4.0)
+	_crack_level = level
+	var world := p.get_parent()
+	if p.rig and p.rig.has_method("shell_cracks"):
+		p.rig.shell_cracks(level)
+		p.rig.tremble = 0.35 * level
+		p.rig.core_heat = 1.0
+	Fx.shake(world, 3.0 + level * 2.0)
+	Fx.sparks(world, p.global_position + Vector2(randf_range(-40, 40), randf_range(-60, 20)), Color(1.0, 0.6, 0.2), 8 + level * 4, 220.0, 4.0)
+	if level >= 2:
+		for k in level:                                     # пар бьёт из швов
+			Fx.sparks(world, p.global_position + Vector2(randf_range(-50, 50), randf_range(-90, 30)), Color(0.85, 0.85, 0.88, 0.8), 5, 160.0, 6.0, true)
+
+# Пока броня трещит — с неё сыплются мелкие осколки
+func _chips(delta: float) -> void:
+	_chip_t -= delta
+	if _chip_t > 0.0 or not p.rig or not p.rig.has_method("body_points"):
+		return
+	_chip_t = 0.24 / _crack_level
+	var pts: Array = p.rig.body_points()
+	if pts.is_empty():
+		return
+	var at: Vector2 = pts[randi() % pts.size()] + Vector2(randf_range(-30, 30), randf_range(-30, 30))
+	var world := p.get_parent()
+	var am := p.get_tree().get_first_node_in_group("arena_mode")
+	var floor_y: float = am.info["floor"] if am else p.global_position.y + p.body_size.y / 2
+	var pl := Polygon2D.new()
+	var w := randf_range(4, 9)
+	pl.polygon = PackedVector2Array([Vector2(-w, -3), Vector2(w, -4), Vector2(w * 0.7, 4), Vector2(-w * 0.6, 3)])
+	pl.color = Color(0.30, 0.24, 0.36).lerp(Color(0.55, 0.30, 0.25), randf() * 0.4)
+	pl.position = at
+	pl.z_index = 5
+	world.add_child(pl)
+	var vx := randf_range(-160, 160)
+	var t := pl.create_tween()
+	t.set_parallel(true)
+	t.tween_property(pl, "position", Vector2(at.x + vx * 0.5, floor_y - 3.0), 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(pl, "rotation", randf_range(-6.0, 6.0), 0.5)
+	t.chain().tween_property(pl, "modulate:a", 0.0, 0.6).set_delay(1.5)
+	t.chain().tween_callback(pl.queue_free)
 
 func _armor_burst() -> void:
 	if not is_instance_valid(p):
@@ -312,16 +340,28 @@ func _armor_burst() -> void:
 	var world := p.get_parent()
 	var am := p.get_tree().get_first_node_in_group("arena_mode")
 	var c := p.global_position
-	Fx.shake(world, 14.0)
+	var floor_y: float = am.info["floor"] if am else c.y + p.body_size.y / 2
+	_crack_level = 0
+	# куски брони — настоящие части старой модели: шлем, две половины нагрудника,
+	# наплечники с пушкой, поножи, плащ — разлетаются и падают на песок
+	if p.rig:
+		_fling_shell(world, p.rig, floor_y)
+	p.set_rig("colossus_endo")
+	p.set_tint(Color(1, 1, 1))
+	if p.rig and "core_state" in p.rig:
+		p.rig.core_state = "off"
+		p.rig.pupils_on = false
+	Fx.shake(world, 16.0)
 	Util.flash(world, c, 340.0, Color(1.0, 0.7, 0.3, 0.95))
 	Fx.ring(world, c, 440.0, Color(1.0, 0.5, 0.2, 0.95), 0.6, 12.0)
 	Fx.ring(world, c, 260.0, Color(1.0, 0.85, 0.5, 0.9), 0.45, 8.0)
 	Fx.sparks(world, c, Color(1.0, 0.6, 0.2), 40, 520.0, 7.0)
-	# куски брони разлетаются
-	for k in 12:
+	Fx.sparks(world, Vector2(c.x, floor_y - 6), Color(0.75, 0.66, 0.5), 24, 360.0, 6.0, true)     # пыль с песка
+	# мелкие осколки
+	for k in 10:
 		var pl := Polygon2D.new()
-		var w := randf_range(10, 22)
-		pl.polygon = PackedVector2Array([Vector2(-w, -6), Vector2(w, -8), Vector2(w * 0.8, 7), Vector2(-w * 0.7, 8)])
+		var w := randf_range(6, 14)
+		pl.polygon = PackedVector2Array([Vector2(-w, -5), Vector2(w, -6), Vector2(w * 0.8, 5), Vector2(-w * 0.7, 6)])
 		pl.color = Color(0.26, 0.20, 0.32) if k % 3 else Color(0.36, 0.30, 0.40)
 		pl.position = c + Vector2(randf_range(-40, 40), randf_range(-80, 40))
 		pl.z_index = 5
@@ -341,9 +381,129 @@ func _armor_burst() -> void:
 	_sky = InfernoSky.new()
 	_sky.boss = p
 	_sky.map_w = p.map_w
-	_sky.floor_y = am.info["floor"] if am else p.global_position.y + p.body_size.y / 2
+	_sky.floor_y = floor_y
 	_sky.glow = am.info.get("glow") if am else null
 	world.add_child(_sky)
+
+# Части брони — копии кусков старой модели: летят по дуге, падают на песок,
+# лежат какое-то время и тают
+func _fling_shell(world: Node, rig: Node, floor_y: float) -> void:
+	var c := p.global_position
+	var lo := Colosseum.WALL + 60.0
+	var hi := (p.map_w if p.map_w > 0.0 else Colosseum.W) - Colosseum.WALL - 60.0
+	var torso = rig.get("_torso")
+	for nm in ["_head", "_torso", "_arm_f", "_arm_b", "_leg_f", "_leg_b", "_cape"]:
+		var part = rig.get(nm)
+		if not (part is Sprite2D) or not is_instance_valid(part):
+			continue
+		var skin := (part as Node).get_node_or_null("Skin") as Sprite2D
+		if skin == null:
+			continue
+		var tex: Texture2D = skin.texture
+		var tr: Transform2D = skin.get_global_transform()
+		var size := tex.get_size()
+		var pieces := [Rect2(Vector2.ZERO, size)]
+		if part == torso:                                    # нагрудник раскалывается надвое
+			pieces = [Rect2(0, 0, size.x / 2, size.y), Rect2(size.x / 2, 0, size.x / 2, size.y)]
+		for r in pieces:
+			var holder := Node2D.new()
+			holder.z_index = 4
+			var sp := Sprite2D.new()
+			sp.texture = tex
+			sp.region_enabled = true
+			sp.region_rect = r
+			sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			sp.modulate = (part as CanvasItem).modulate * Color(1.2, 0.9, 0.85)
+			holder.add_child(sp)
+			world.add_child(holder)
+			var centre: Vector2 = tr * (r.position + r.size / 2.0)
+			holder.global_transform = Transform2D(tr.x, tr.y, centre)
+			var half_h: float = (tr.basis_xform(Vector2(0, r.size.y))).length() / 2.0
+			var half_w: float = (tr.basis_xform(Vector2(r.size.x, 0))).length() / 2.0
+			var g := 2300.0
+			var up := randf_range(520.0, 880.0)
+			var rest_y := floor_y - minf(half_h, half_w) - 1.0
+			var dy := rest_y - centre.y
+			var t_land := (up + sqrt(maxf(up * up + 2.0 * g * dy, 1.0))) / g
+			var land_x := clampf(centre.x + signf(centre.x - c.x + randf_range(-25.0, 25.0)) * randf_range(160.0, 520.0), lo, hi)
+			var vx := (land_x - centre.x) / t_land
+			var spin := randf_range(-7.0, 7.0)
+			var r0 := holder.rotation
+			var p0 := centre
+			var tw := holder.create_tween()
+			tw.tween_method(func(t: float):
+				if is_instance_valid(holder):
+					holder.global_position = p0 + Vector2(vx * t, -up * t + 0.5 * g * t * t)
+					holder.rotation = r0 + spin * t, 0.0, t_land, t_land)
+			# упал: пыль, лёгкий отскок, ложится плашмя
+			var flat := r0 + spin * t_land
+			flat = round(flat / (PI / 2.0)) * (PI / 2.0)
+			if absf(fmod(absf(flat), PI) - PI / 2.0) < 0.1 and half_w > half_h * 1.3:
+				flat += PI / 2.0                              # длинной стороной — на песок
+			tw.tween_callback(func():
+				if is_instance_valid(world):
+					Fx.sparks(world, Vector2(land_x, floor_y - 4.0), Color(0.75, 0.66, 0.5), 8, 180.0, 4.0, true))
+			tw.tween_property(holder, "global_position:y", rest_y - 26.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(holder, "global_position:x", land_x + vx * 0.06, 0.28)
+			tw.parallel().tween_property(holder, "rotation", flat, 0.28)
+			tw.tween_property(holder, "global_position:y", rest_y, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_interval(7.0)
+			tw.tween_property(holder, "modulate:a", 0.0, 1.5)
+			tw.tween_callback(holder.queue_free)
+
+# В пустых глазницах остова зажигаются зрачки (мигнув пару раз), голова дёргается
+func _endo_eyes() -> void:
+	if not is_instance_valid(p) or not p.rig or not ("pupils_on" in p.rig):
+		return
+	var rig = p.rig
+	rig.tremble = 0.0
+	for k in 4:
+		p._after(k * 0.07, func():
+			if is_instance_valid(rig):
+				rig.pupils_on = k % 2 == 0)
+	p._after(0.3, func():
+		if is_instance_valid(rig):
+			rig.pupils_on = true
+			rig.jerk(-0.5 * 1.0, 0.2))
+
+# Ядро в груди вспыхивает
+func _endo_core_on() -> void:
+	if not is_instance_valid(p) or not p.rig or not ("core_state" in p.rig):
+		return
+	var world := p.get_parent()
+	p.rig.core_state = "on"
+	p.rig.core_hit()
+	var at: Vector2 = p.rig.core_point()
+	Util.flash(world, at, 140.0, Color(1.0, 0.7, 0.3, 0.9))
+	Fx.ring(world, at, 160.0, Color(1.0, 0.55, 0.2, 0.9), 0.4, 6.0)
+	Fx.sparks(world, at, Color(1.0, 0.6, 0.2), 16, 260.0, 4.0)
+	Fx.shake(world, 6.0)
+
+# Остов выпрямляется — рывками, как механизм
+func _endo_rise() -> void:
+	if not is_instance_valid(p) or not p._rig_root:
+		return
+	var root := p._rig_root
+	var r0 := root.rotation
+	var y0 := root.position.y
+	var kt := root.create_tween()
+	for k in 3:
+		var q := (k + 1) / 3.0
+		kt.tween_property(root, "rotation", lerpf(r0, _rig_rot, q), 0.05)
+		kt.parallel().tween_property(root, "position:y", lerpf(y0, _rig_y, q), 0.05)
+		kt.tween_interval(0.08)
+	if p.rig and p.rig.has_method("jerk"):
+		p.rig.jerk(0.35, 0.15)
+
+# Рёв: пасть настежь
+func _endo_roar() -> void:
+	if not is_instance_valid(p):
+		return
+	var world := p.get_parent()
+	if p.rig:
+		p.rig.play("roar")
+	Fx.shake(world, 10.0)
+	Fx.ring(world, p.global_position + Vector2(0, -p.body_size.y * 0.35), 300.0, Color(1.0, 0.45, 0.2, 0.8), 0.5, 7.0)
 
 func _begin_phase2() -> void:
 	Engine.time_scale = 1.0
@@ -363,16 +523,16 @@ func _begin_phase2() -> void:
 	p.front_armor = 0.0
 	p.back_mult = 1.0
 	p.speed = float(t["speed"]) * 1.5
-	p.set_tint(Color(1.35, 0.86, 0.72))
 	p.set_meta("title", t["phase2_name"])
 	p.bot_abilities = {"fire_dash": 7.0, "meteor_leap": 11.0, "lava_volley": 6.0, "core_nova": 19.0, "shockwave": 10.0}
 	p._bot_cd = {}
 	if p._rig_root:
-		var kt := p._rig_root.create_tween()
-		kt.tween_property(p._rig_root, "rotation", 0.0, 0.3)
-		kt.parallel().tween_property(p._rig_root, "position:y", _rig_y, 0.3)
-	if p.rig:
-		p.rig.play("roar")
+		p._rig_root.rotation = _rig_rot
+		p._rig_root.position.y = _rig_y
+	if p.rig and "core_state" in p.rig:
+		p.rig.core_state = "on"
+		p.rig.pupils_on = true
+		p.rig.tremble = 0.0
 	_awake = true
 	_waking = false
 	p.frozen = false
@@ -385,19 +545,12 @@ func _begin_phase2() -> void:
 func _colossus_awake(delta: float) -> void:
 	var bs := p.body_size
 	var world := p.get_parent()
-	_eye.position = Vector2(p.facing * bs.x * 0.2, -bs.y * 0.36)
-	_eye.color = Color(1.0, 0.55, 0.15, 0.7 + 0.25 * sin(_t * 8.0))
-	_core.position = Vector2(p.facing * bs.x * 0.05, -bs.y * 0.12)
-	var nova_k := 1.0 - _nova_t / NOVA_T if _nova_t > 0.0 else 0.0
-	_core.scale = Vector2.ONE * (1.0 + 0.15 * sin(_t * 6.0) + nova_k * 1.6)
-	_core.color = Color(1.0, 0.55 + 0.25 * sin(_t * 9.0), 0.15, 0.75 if not p.is_stunned() else 0.25)
-	if _cracks:
-		_cracks.modulate.a = 0.75 + 0.25 * sin(_t * 7.0)
-	# искры с раскалённого тела
+	_core_tick(delta)
+	# искры с раскалённого каркаса
 	_ember_t -= delta
 	if _ember_t <= 0.0:
-		_ember_t = 0.1
-		Fx.sparks(world, p.global_position + Vector2(randf_range(-bs.x * 0.4, bs.x * 0.4), randf_range(-bs.y * 0.4, bs.y * 0.3)),
+		_ember_t = 0.14
+		Fx.sparks(world, p.global_position + Vector2(randf_range(-bs.x * 0.3, bs.x * 0.3), randf_range(-bs.y * 0.4, bs.y * 0.3)),
 				Color(1.0, 0.55, 0.15), 2, 90.0, 3.0, true)
 	_crush_t -= delta
 	if _crush_t <= 0.0:
@@ -409,6 +562,50 @@ func _colossus_awake(delta: float) -> void:
 		_leap_tick(delta)
 	if _nova_t > 0.0:
 		_nova_tick(delta)
+
+# ----- Ядро остова: открывается после рывка и прыжка-метеора -----
+func open_core(time: float) -> void:
+	if not is_instance_valid(p) or not p.is_alive():
+		return
+	var first := _core_open_t <= 0.0
+	_core_open_t = maxf(_core_open_t, time)
+	if first:
+		p._float_label("Ядро открыто! Бей в грудь!", Color(1.0, 0.85, 0.4))
+		if p.rig and p.rig.has_method("core_hit"):
+			p.rig.core_hit()
+			var at: Vector2 = p.rig.core_point()
+			Fx.sparks(p.get_parent(), at, Color(0.9, 0.9, 0.92, 0.85), 10, 200.0, 6.0, true)     # пар из груди
+
+func _core_tick(delta: float) -> void:
+	if _core_open_t > 0.0:
+		_core_open_t = maxf(0.0, _core_open_t - delta)
+	if _spent and not p.is_stunned():
+		_spent = false
+	var opened := _core_open_t > 0.0
+	p.front_mult = CORE_MULT if opened and _nova_t <= 0.0 else 1.0
+	var rig = p.rig
+	if rig and "core_open" in rig:
+		var want := 1.0 if opened or _nova_t > 0.0 or _spent else 0.0
+		rig.core_open = move_toward(rig.core_open, want, delta * 5.0)
+		rig.core_state = "hot" if _nova_t > 0.0 else ("spent" if _spent else "on")
+		if opened and fmod(_t, 0.3) < delta:
+			Fx.sparks(p.get_parent(), rig.core_point() + Vector2(p.facing * 30.0, 0), Color(0.88, 0.88, 0.9, 0.7), 2, 110.0, 5.0, true)
+
+# Попадание в открытое ядро: вспышка и надпись (не чаще раза в секунду)
+func _on_hurt(_amount: int, attacker) -> void:
+	if not _awake or p.front_mult <= 1.0 or attacker == null or not is_instance_valid(attacker) or not (attacker is Node2D):
+		return
+	var side := signf(attacker.global_position.x - p.global_position.x)
+	if side != float(p.facing) and side != 0.0:
+		return
+	var at: Vector2 = p.global_position
+	if p.rig and p.rig.has_method("core_hit"):
+		p.rig.core_hit()
+		at = p.rig.core_point()
+	Fx.sparks(p.get_parent(), at, Color(1.0, 0.85, 0.45), 4, 200.0, 3.0)
+	if _t - _core_note > 1.2:
+		_core_note = _t
+		p._float_label("ЯДРО! ×1,5", Color(1.0, 0.85, 0.35))
 
 # ----- Огненный рывок: линия на земле, потом таран через поле, за ним горит земля -----
 func start_dash(dir: float) -> void:
@@ -462,6 +659,7 @@ func _dash_tick(delta: float) -> void:
 		p._forced_vx = 0.0
 		Fx.shake(world, 6.0)
 		Fx.sparks(world, p.global_position + Vector2(_dash_dir * bs.x / 2, bs.y / 2 - 10), Color(0.8, 0.6, 0.4), 12, 240.0, 4.0, true)
+		open_core(CORE_OPEN)                              # перегрелся — грудь раскрывается, ядро наружу
 
 func is_on_wall_ahead() -> bool:
 	return p.global_position.x < 120.0 + p.body_size.x / 2 or p.global_position.x > p.map_w - 120.0 - p.body_size.x / 2
@@ -567,6 +765,7 @@ func _land() -> void:
 	for side in [-1.0, 1.0]:
 		for k in 8:
 			p._after(0.12 + k * 0.08, _fire_pillar.bind(feet.x + side * (210.0 + k * 100.0), feet.y))
+	open_core(CORE_OPEN)                                  # после удара грудь раскрывается — ядро наружу
 
 func _fire_pillar(x: float, fy: float) -> void:
 	if not is_instance_valid(p) or x < 70.0 or x > p.map_w - 70.0:
@@ -664,7 +863,9 @@ func _nova_boom() -> void:
 	Fx.sparks(world, c, Color(1.0, 0.6, 0.2), 40, 600.0, 7.0)
 	Fx.shake(world, 16.0)
 	# выдохся: ядро погасло, урон по нему двойной
+	_core_open_t = 0.0
 	p.stun(3.0)
+	_spent = true
 	p._float_label("Колосс выдохся! урон ×%s" % str(p.stun_mult).trim_suffix(".0"), Color(1.0, 0.85, 0.3))
 
 func _banner(am, text: String) -> void:
@@ -719,12 +920,12 @@ func _hidden_tick(delta: float) -> void:
 	_hide_t -= delta
 	var world := p.get_parent()
 	if _hide_kind == "submerge":
-		if _good_target() and _hide_t > 0.5:
+		if _good_target() and _hide_t > 0.75:
 			_goal_x = _safe_x(move_toward(_goal_x, p.target.global_position.x, 420.0 * delta))
 		p.global_position.x = move_toward(p.global_position.x, _goal_x, 700.0 * delta)
 		if fmod(_hide_t, 0.12) < delta:
 			Fx.sparks(world, Vector2(p.global_position.x, _floor_y - 4), Color(0.4, 0.45, 0.25), 3, 120.0, 5.0, true)
-		if _hide_t < 0.5 and fmod(_hide_t, 0.15) < delta:
+		if _hide_t < 0.75 and fmod(_hide_t, 0.15) < delta:
 			Fx.ring(world, Vector2(_goal_x, _floor_y), 120.0, Color(0.6, 0.9, 0.3, 0.7), 0.2, 4.0, 0.3)
 	else:
 		p.global_position.x = move_toward(p.global_position.x, _goal_x, 1600.0 * delta)

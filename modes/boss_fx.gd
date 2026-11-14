@@ -11,13 +11,15 @@ class_name BossFx
 #   Барон Грызь         — машина чихает дымом, взрывается, барона уносит;
 #   Ирида               — рассыпается на кристаллы, они уходят столбом света в небо;
 #   Гладиатор           — салютует толпе, падает на колено, сыплются лепестки;
-#   Колосс              — ядро взрывается, тело оседает, остаётся столб дыма;
+#   Колосс              — остов бьётся в судорогах, ядро взрывается: рёбра и руки
+#                         разлетаются, череп катится по песку и гаснет, каркас оседает;
 #   Ведьма Полынь       — рассыпается стаей воронов, шляпа падает на землю;
 #   Трясинный Владыка   — тонет в трясине, последней скрывается рука;
 #   Ётун Стужа          — застывает ледяной статуей и раскалывается, венец катится;
 #   Громовник           — молнии рвутся во все стороны, последняя бьёт в него — тает вихрем;
 #   Цербер              — три огня гаснут, тело остывает в обсидиан и рассыпается пеплом;
-#   Тёмный Лорд         — на колено, меч в пол, доспех трескается светом — пепел уносит вверх.
+#   Тёмный Лорд         — на колено, меч в пол, доспех трескается светом — пепел уносит вверх;
+#   Пустокрыл, Предвестник — см. RiftScenes.
 # У главных боссов (каждые 10 волн) последний удар — с замедлением времени.
 
 # Возвращает узел с моделью — за ним можно навести камеру
@@ -74,6 +76,7 @@ static func _play(world: Node, c: Node2D, kind: String, feet: Vector2, f: float,
 		"storm_lord": _storm_lord(world, c, feet, f, bs)
 		"cerberus": _cerberus(world, c, feet, f, bs)
 		"dark_lord": _dark_lord(world, c, feet, f, bs)
+		"voidwing", "harbinger": RiftScenes.death(world, c, kind, feet, f, bs)
 		_:
 			_fade(c, 0.3, 0.8)
 
@@ -425,8 +428,99 @@ static func _gladiator(world: Node, c: Node2D, feet: Vector2, f: float, bs: Vect
 		pt.tween_property(petal, "modulate:a", 0.0, 0.8)
 		pt.tween_callback(petal.queue_free)
 
-# ---------- Колосс: ядро взрывается, тело оседает ----------
+# ---------- Колосс-остов: судороги, ядро взрывается, каркас разваливается ----------
 static func _colossus(world: Node, c: Node2D, feet: Vector2, f: float, bs: Vector2) -> void:
+	var rig: BotRig = null
+	for n in c.get_children():
+		for m in n.get_children():
+			if m is BotRig:
+				rig = m
+	if rig == null or rig._endo.is_empty():
+		_colossus_shell(world, c, feet, f, bs)
+		return
+	rig.core_state = "hot"
+	rig.core_open = 1.0
+	rig.tremble = 0.7
+	var t := c.create_tween()
+	# 0–0,9 с: судороги, искры из суставов, голова дёргается
+	for k in 6:
+		t.tween_callback(func():
+			if is_instance_valid(rig) and is_instance_valid(world):
+				rig.jerk(randf_range(-0.6, 0.5), 0.12)
+				var pts: Array = rig.body_points()
+				Fx.sparks(world, pts[randi() % pts.size()], Color(1.0, 0.7, 0.3), 6, 220.0, 3.0))
+		t.tween_interval(0.15)
+	# 0,9 с: ядро взрывается — рёбра, руки и череп разлетаются
+	t.tween_callback(func():
+		if not is_instance_valid(rig) or not is_instance_valid(world):
+			return
+		var mid := rig.core_point()
+		rig.tremble = 0.0
+		rig.set_process(false)                       # дальше части живут сами (модель их больше не двигает)
+		(rig._endo["jaw"] as Node2D).rotation = 0.65
+		Util.flash(world, mid, 520.0, Color(1.0, 0.9, 0.7, 1.0))
+		Fx.ring(world, mid, 520.0, Color(1.0, 0.55, 0.2, 0.95), 0.6, 14.0)
+		Fx.ring(world, mid, 300.0, Color(1.0, 0.9, 0.6, 0.9), 0.45, 9.0)
+		Fx.sparks(world, mid, Color(1.0, 0.6, 0.2), 50, 620.0, 7.0)
+		Fx.shake(world, 18.0)
+		(rig._endo["core"] as Node2D).visible = false
+		_toss(world, rig._endo["ribs_up"], Vector2(f * randf_range(260, 420), -720.0), randf_range(5.0, 9.0), feet.y)
+		_toss(world, rig._endo["ribs_lo"], Vector2(f * randf_range(150, 300), -420.0), randf_range(-8.0, -4.0), feet.y)
+		_toss(world, rig._arm_f, Vector2(f * randf_range(200, 360), -380.0), randf_range(3.0, 6.0), feet.y)
+		_toss(world, rig._arm_b, Vector2(-f * randf_range(160, 300), -340.0), randf_range(-6.0, -3.0), feet.y)
+		var head := rig._head
+		_toss(world, head, Vector2(-f * randf_range(240, 340), -900.0), -f * 7.0, feet.y, 1.6)
+		# зрачки мигают и гаснут уже на песке
+		var pupils: Node2D = rig._endo["pupils"]
+		var it := head.create_tween()
+		it.tween_interval(1.9)
+		for k in 4:
+			it.tween_callback(func():
+				if is_instance_valid(pupils):
+					pupils.visible = k % 2 == 1)
+			it.tween_interval(0.16)
+		it.tween_callback(func():
+			if is_instance_valid(pupils):
+				pupils.visible = false))
+	# каркас подкашивается и оседает грудой железа, дым столбом
+	t.tween_property(c, "modulate", Color(0.45, 0.38, 0.36), 0.4)
+	t.tween_property(c, "scale", Vector2(1.15, 0.3), 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	t.tween_callback(func():
+		if is_instance_valid(world):
+			Fx.sparks(world, feet + Vector2(0, -8), Color(0.75, 0.66, 0.5), 14, 240.0, 5.0, true)
+			for k in 7:
+				_smoke(world, feet + Vector2(randf_range(-60, 60), -10), Color(0.2, 0.17, 0.16, 0.75), 3, 50.0))
+	t.tween_interval(2.4)
+	t.tween_property(c, "modulate:a", 0.0, 1.0)
+	t.tween_callback(c.queue_free)
+
+# Часть модели отрывается и летит по дуге, падает на пол, лежит и тает
+static func _toss(world: Node, part: Node2D, vel: Vector2, spin: float, floor_y: float, hold := 2.6) -> void:
+	if part == null or not is_instance_valid(part):
+		return
+	part.reparent(world, true)
+	part.z_index = 6
+	var p0 := part.global_position
+	var r0 := part.rotation
+	var g := 2200.0
+	var rest_y := floor_y - 6.0
+	var dy := rest_y - p0.y
+	var t_land := (-vel.y + sqrt(maxf(vel.y * vel.y + 2.0 * g * dy, 1.0))) / g
+	var tw := part.create_tween()
+	tw.tween_method(func(t: float):
+		if is_instance_valid(part):
+			part.global_position = p0 + Vector2(vel.x * t, vel.y * t + 0.5 * g * t * t)
+			part.rotation = r0 + spin * t, 0.0, t_land, t_land)
+	tw.tween_callback(func():
+		if is_instance_valid(world) and is_instance_valid(part):
+			Fx.sparks(world, Vector2(part.global_position.x, floor_y - 4.0), Color(0.75, 0.66, 0.5), 6, 160.0, 4.0, true))
+	tw.tween_property(part, "rotation", round((r0 + spin * t_land) / PI) * PI + PI / 2.0 * signf(spin), 0.2)
+	tw.tween_interval(hold)
+	tw.tween_property(part, "modulate:a", 0.0, 1.0)
+	tw.tween_callback(part.queue_free)
+
+# Колосс в броне (запасная сцена — если погиб, не успев пробудиться)
+static func _colossus_shell(world: Node, c: Node2D, feet: Vector2, f: float, bs: Vector2) -> void:
 	var mid := feet + Vector2(0, -bs.y * 0.55)
 	var core := _poly(world, Util.circle(30.0, 18), Color(1.0, 0.6, 0.2, 0.8), mid, 6)
 	var ct := core.create_tween()

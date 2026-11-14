@@ -31,13 +31,13 @@ func _physics_process(_d: float) -> bool:
 	match f:
 		3:
 			main.sel = [1, 0]
-			main.start_arena()
+			main.start_arena(false, 1)
 			for n in main.world.get_children():
 				if n is ArenaMode: arena = n
 			arena._queue.clear()
 			main.world.child_entered_tree.connect(_on_child)
 		200:
-			p = arena.player
+			p = arena.players[0]
 			p.frozen = false
 			arena.wave = 20
 			arena._state = "test"

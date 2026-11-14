@@ -33,7 +33,7 @@ func _build() -> void:
 func _process(_d: float) -> bool:
 	f += 1
 	if f == 20:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/far/rigs_%d.png" % page)
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/far/rigs_%d.png" % page)
 		page += 1
 		if page * 7 >= kinds.size():
 			return true

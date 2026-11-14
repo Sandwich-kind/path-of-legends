@@ -28,6 +28,7 @@ var _anvils: Array = []
 var forge_t := 0.0
 var _forge_mega := false
 var _finale := false
+var _forging := false          # замах «Кузни» до удара о землю
 var _aura: Node2D
 var _aura_tick := 0.0
 
@@ -42,16 +43,9 @@ func weapon(delta: float, shoot: bool) -> void:
 
 func _bow(delta: float, shoot: bool) -> void:
 	var rapid := p.has_buff("rapid")
-	if p._reloading > 0.0:
-		p._reloading -= delta
-		if p._reloading <= 0.0:
-			p._reloading = 0.0
-			p.ammo = p.clip_size
-	elif not p.is_bot and Input.is_action_just_pressed(p.prefix + "_reload") and p.ammo < p.clip_size:
-		p._reloading = p.reload_time
-	if rapid:
-		p._reloading = 0.0
-		p.ammo = p.clip_size
+	# колчан бездонный — без перезарядки (и на Арене, и в Дуэли; Дуэль — на пробу)
+	p._reloading = 0.0
+	p.ammo = p.clip_size
 	if _charge >= 0.0:
 		if shoot and _hook_t <= 0.0:
 			# держит — тетива натягивается
@@ -86,7 +80,10 @@ func _release() -> void:
 		"ghost":
 			a = _shoot_arrow("ghost", dir * 2400.0, 34, 0.0)
 		_:
-			a = _shoot_arrow("", dir * lerpf(950.0, 1550.0, k), int(lerpf(10, 24, k)), lerpf(520.0, 200.0, k))
+			# натянута до конца — стрела-«пробойник»: прошивает 2 врагов и 2 блока
+			a = _shoot_arrow("power" if k >= 1.0 else "", dir * lerpf(950.0, 1550.0, k), int(lerpf(10, 24, k)), lerpf(520.0, 200.0, k))
+			if k >= 1.0:
+				Fx.sparks(p.get_parent(), a.global_position, Color(1.0, 0.9, 0.45), 6, 180.0, 3.5)
 	if enchant != "":
 		Fx.sparks(p.get_parent(), a.global_position, Color(0.55, 1.0, 0.75), 10, 220.0, 4.0)
 		if _ench_more > 0:
@@ -94,14 +91,10 @@ func _release() -> void:
 		else:
 			enchant = ""
 	if p.is_mega("rapid"):
-		a.mode = "pierce" if a.mode == "" else a.mode
+		a.mode = "pierce" if a.mode in ["", "power"] else a.mode
 	p._anim("shoot")
 	var rapid := p.has_buff("rapid")
 	p._cooldown_left = p.fire_cooldown * (0.5 if rapid else 1.0)
-	if not rapid:
-		p.ammo -= 1
-		if p.ammo <= 0:
-			p._reloading = p.reload_time
 
 func _shoot_arrow(mode: String, vel: Vector2, dmg: int, grav: float) -> Arrow:
 	var a := Arrow.new()
@@ -118,7 +111,6 @@ func _shoot_arrow(mode: String, vel: Vector2, dmg: int, grav: float) -> Arrow:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or p._cd[i] > 0.0:
 		return
 	if ab == "hammer_throw" and hammer_out:
@@ -192,6 +184,11 @@ func ult() -> void:
 	else:
 		_arrow_sky()
 
+# Пока горит «Кузня» (и пока идут финальные удары) новая ульта не копится и не
+# включается — иначе старый финал гасил бы новую Кузню на середине
+func ulting() -> bool:
+	return hero == "smith" and (forge_t > 0.0 or _finale or _forging)
+
 func _after(time: float, fn: Callable) -> void:
 	get_tree().create_timer(time).timeout.connect(fn)
 
@@ -220,6 +217,7 @@ func on_death() -> void:
 	_show_charge(-1.0)
 	hammer_out = false
 	_leap_t = 0.0
+	_forging = false
 	if forge_t > 0.0 or _finale:
 		forge_t = 0.0
 		_finale = false
@@ -635,11 +633,13 @@ func _forge() -> void:
 	p._forced_time = 1.0
 	p._forced_vx = 0.0
 	p._anim("forge")
+	_forging = true
 	Fx.glow(world, p.global_position, 80.0, Color(1.0, 0.55, 0.15, 0.25), 1.0)
 	Fx.sparks(world, p.global_position + Vector2(0, -30), Color(1.0, 0.6, 0.2), 10, 160.0, 4.0, true)
 	_after(0.45, _forge_impact)
 
 func _forge_impact() -> void:
+	_forging = false
 	if not p.is_alive():
 		return
 	var world := p.get_parent()

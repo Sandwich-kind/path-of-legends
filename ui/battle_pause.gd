@@ -58,10 +58,23 @@ func _button(text: String, y: float, fn: Callable, w := -1.0, x := 40.0, font :=
 	_box.add_child(b)
 	return b
 
+func _arena() -> ArenaMode:
+	if main == null or main.world == null:
+		return null
+	for n in main.world.get_children():
+		if n is ArenaMode:
+			return n
+	return null
+
 func _main() -> void:
 	var items := [["Продолжить", resume], ["Настройки", _settings], ["Управление", _controls]]
 	if kind == "duel":
 		items.append(["Начать матч заново", _restart])
+	var ar := _arena()
+	if ar:
+		if ar.boss_tip != "" and ar._boss != null and is_instance_valid(ar._boss) and ar._boss.is_alive():
+			items.insert(1, ["Как победить босса", _boss_help])
+		items.insert(1 if items.size() < 5 else 2, ["Усиления забега", _run_info])
 	items.append(["В главное меню", _confirm_exit])
 	_clear(440, 92 + items.size() * 68 + 10, "Пауза")
 	for i in items.size():
@@ -104,6 +117,39 @@ func _confirm_exit() -> void:
 	no.set_meta("pad_default", true)
 	no.grab_focus.call_deferred()
 	yes.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
+
+# Подсказка по текущему боссу (на экране в бою — только одна строка)
+func _boss_help() -> void:
+	var ar := _arena()
+	var b: Player = ar._boss
+	var title: String = b.get_meta("title", Bots.TYPES[b.get_meta("kind")]["name"])
+	_text_page(title, ar.boss_tip)
+
+# Что куплено в Магазине Арены за это прохождение
+func _run_info() -> void:
+	var ar := _arena()
+	var t := ""
+	for i in ar.players.size():
+		var p: Player = ar.players[i]
+		if ar.coop:
+			t += "Игрок %d: " % (i + 1)
+		t += RunShop.describe(p.run) + "\n"
+	t += "\nЖизней: %d%s. Магазин открывается после каждой десятой волны." % [ar.lives, " (общие)" if ar.coop else ""]
+	_text_page("Усиления забега", t)
+
+func _text_page(title: String, text: String) -> void:
+	_clear(620, 380, title)
+	var l := Label.new()
+	l.text = text
+	l.size = Vector2(580, 240)
+	l.position = Vector2(20, 70)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", 19)
+	l.add_theme_color_override("font_color", Color(0.95, 0.90, 0.80))
+	_box.add_child(l)
+	var back := _button("Назад", 306, _main, 200, 210, 22)
+	back.set_meta("pad_default", true)
+	back.grab_focus.call_deferred()
 
 func _exit() -> void:
 	_closing = true

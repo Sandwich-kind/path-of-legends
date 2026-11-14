@@ -117,7 +117,6 @@ func _gold_pop(victim: Node) -> void:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or p._cd[i] > 0.0:
 		return
 	use(ab)

@@ -5,6 +5,14 @@ var f := 0
 var t0 := 0
 var spawns: Array = []
 var sky_count := 0
+var bw0 := 0
+var tree0 := 0
+var tree_ref: Destructible
+var fails := 0
+func check(ok: bool, what: String) -> void:
+	if not ok:
+		fails += 1
+	print("%s %s" % ["ok  " if ok else "FAIL", what])
 
 func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
@@ -35,23 +43,21 @@ func _physics_process(_d: float) -> bool:
 	f += 1
 	match f:
 		3:
-			main.sel = [0, 1]
-			main._on_map_chosen("two_houses", 2, 2)
-			main._start_game()
+			main._on_duel_ready("two_houses", 2, 2, [0, 1])
 		10:
-			print("round=", main.round_num, " frozen=", ps()[0].frozen, " round_over=", main.round_over,
-					" trees=", trees().size(), " backwalls=", backwalls().size())
+			check(main.round_num == 1 and ps()[0].frozen and main.round_over, "round 1 starts frozen for the countdown")
+			check(trees().size() >= 2 and backwalls().size() == 2, "map has trees (%d) and house back walls (%d)" % [trees().size(), backwalls().size()])
 		200:
-			print("after countdown: frozen=", ps()[0].frozen, " round_over=", main.round_over)
+			check(not ps()[0].frozen and not main.round_over, "after the countdown the fight is on")
 		# --- убийство 1
 		205:
 			ps()[1].take_damage(999, ps()[0])
 		206:
-			print("kills=", main.kills, " text ok")
+			check(main.kills == [1, 0], "a kill is counted (%s)" % str(main.kills))
 		# --- статистика возрождений игрока 2
 		330:
 			var p: Player = ps()[1]
-			print("respawned p2 at ", p.position.round(), " para=", p._para, " kind=", p.last_spawn_kind)
+			check(p.is_alive() and p.last_spawn_kind != "", "player 2 respawned (%s at %s)" % [p.last_spawn_kind, str(p.position.round())])
 		# --- 40 возрождений подряд: где появляется
 		340:
 			var p: Player = ps()[1]
@@ -67,11 +73,11 @@ func _physics_process(_d: float) -> bool:
 					left += 1
 				xs.append(int(s.x))
 			xs.sort()
-			print("40 spawns of p2: on wrong half=", left, " sky=", sky_count, " x range ", xs[0], "..", xs[-1])
+			check(left == 0, "40 respawns of player 2: none on the enemy half (x %d..%d, from the sky %d)" % [xs[0], xs[-1], sky_count])
 			var ys := {}
 			for s in spawns:
 				ys[int(s.y / 100) * 100] = true
-			print("   heights used (y/100): ", ys.keys())
+			check(ys.size() >= 2, "respawns use several heights (%s)" % str(ys.keys()))
 		# --- парашют: принудительно в небо
 		350:
 			var p: Player = ps()[0]
@@ -79,25 +85,23 @@ func _physics_process(_d: float) -> bool:
 			p.velocity = Vector2.ZERO
 			p._para = 1
 			t0 = f
-		351, 400, 440, 480, 520, 560:
-			var p: Player = ps()[0]
-			print("  para f", f - t0, " y=", int(p.position.y), " vy=", int(p.velocity.y), " state=", p._para)
-		900:
-			var lying2 := 0
-			for n in main.world.get_children():
-				if n is Node2D and not (n is CollisionObject2D) and n.z_index == -1 and n.get_child_count() >= 2 and n.modulate.a > 0.9:
-					lying2 += 1
-			print("canopy still lying 5 s later=", lying2)
+		400:
+			check(ps()[0]._para == 1 and ps()[0].velocity.y > 900.0, "parachute: free fall first (vy=%d)" % int(ps()[0].velocity.y))
+		460:
+			check(ps()[0]._para == 2 and ps()[0].velocity.y < 300.0, "parachute: canopy opens and slows the fall (vy=%d)" % int(ps()[0].velocity.y))
+		560:
+			check(ps()[0]._para == 0 and ps()[0].is_on_floor(), "parachute: landed")
 		600:
 			var lying := 0
 			for n in main.world.get_children():
 				if n is Node2D and not (n is CollisionObject2D) and n.z_index == -1 and n.get_child_count() >= 2 and n.modulate.a > 0.9:
 					lying += 1
-			print("parachute after landing: state=", ps()[0]._para, " canopy lying on ground=", lying)
+			check(ps()[0]._para == 0 and lying >= 1, "the canopy stays lying on the ground (%d)" % lying)
 		# --- гранатa поджигает дерево
 		610:
 			var tr: Destructible = trees()[0]
-			print("tree at ", tr.global_position.round(), " cells=", tr.cells.size())
+			tree0 = tr.cells.size()
+			tree_ref = tr
 			var g := Grenade.new()
 			g.team = 0
 			g.attacker = ps()[0]
@@ -108,31 +112,30 @@ func _physics_process(_d: float) -> bool:
 				if n is Grenade:
 					n.linear_velocity = Vector2.ZERO
 		900:
-			var tr: Destructible = trees()[0]
+			var left: int = tree_ref.cells.size() if is_instance_valid(tree_ref) else 0
 			var pieces := 0
 			for n in main.world.get_children():
 				if n is Destructible and not n.background and n.flammable:
 					pieces += 1
-			print("TEST tree after grenade+fire: anchored tree cells=", tr.cells.size(),
-					" burning=", tr._burning.size(), " fallen tangible pieces=", pieces)
+			check(left < tree0, "grenade and fire eat the tree (%d -> %d cells, fallen pieces %d)" % [tree0, left, pieces])
 		# --- тяжёлый снаряд сквозь задние стены и деревья
 		910:
 			var p: Player = ps()[1]
 			p.position = Vector2(3950 - 300, 1215)
 			p.facing = -1
 			var bw: Destructible = backwalls()[1]
-			print("backwall2 cells before=", bw.cells.size())
+			bw0 = bw.cells.size()
 			p._fire_shell()
 		1050:
 			var bw: Destructible = backwalls()[1]
-			print("TEST shell vs back wall: cells after=", bw.cells.size())
+			check(bw.cells.size() < bw0, "heavy shell breaks through the back wall (%d -> %d cells)" % [bw0, bw.cells.size()])
 		# --- раунд 1 до 2 убийств
 		1060:
 			ps()[1].take_damage(999, ps()[0])
 		1065:
-			print("after 2nd kill: round_wins=", main.round_wins, " round_over=", main.round_over)
+			check(main.round_wins == [1, 0] and main.round_over, "2 kills win the round (%s)" % str(main.round_wins))
 		1250:
-			print("new round=", main.round_num, " kills=", main.kills, " trees=", trees().size())
+			check(main.round_num == 2 and main.kills == [0, 0] and trees().size() >= 2, "round 2: score reset, map rebuilt whole")
 		1420:
 			ps()[1].take_damage(999, ps()[0])
 		1600:
@@ -142,8 +145,8 @@ func _physics_process(_d: float) -> bool:
 			for n in main.world.get_children():
 				if n is MatchEnd:
 					ended = true
-			print("match end screen=", ended, " round_wins=", main.round_wins)
-			print("ALL DONE")
+			check(ended and main.round_wins == [2, 0], "2 rounds win the match, the end screen shows")
+			print("RESULT fails=", fails)
 			return true
 	return false
 

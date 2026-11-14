@@ -43,7 +43,7 @@ const TYPES := {
 	# ----- мини-босс 5-й волны и босс 10-й -----
 	"gladiator": {
 		"name": "Гладиатор", "color": Color(0.72, 0.45, 0.25), "size": Vector2(76, 104),
-		"hp": 1350, "speed": 240.0, "decor": "gladiator", "boss": true, "raid_brain": true,
+		"hp": 2050, "speed": 240.0, "decor": "gladiator", "boss": true, "tempo": 1.30, "dmg_mult": 1.15, "raid_brain": true,
 		"gun": [0.0, 12, 0.0, 1.6, 0.0], "clip": 2, "reload": 1.8, "gun_kind": "spear", "range": 800.0,
 		"keep": [120.0, 420.0], "jump": 0.05, "swing": 22,
 		"abilities": {"charge": 6.0, "swing": 2.0, "volley": 9.0, "whirlwind": 12.0},
@@ -51,15 +51,15 @@ const TYPES := {
 	},
 	"colossus": {
 		"name": "Колосс", "color": Color(0.26, 0.20, 0.32), "size": Vector2(160, 220),
-		"hp": 2000, "speed": 130.0, "decor": "horns", "boss": true, "eye": Color(1.0, 0.25, 0.2), "raid_brain": true,
-		"phase2_hp": 1600, "phase2_name": "Колосс Пробуждённый",
+		"hp": 950, "speed": 130.0, "decor": "horns", "boss": true, "tempo": 1.15, "dmg_mult": 1.40, "eye": Color(1.0, 0.25, 0.2), "raid_brain": true,
+		"phase2_hp": 900, "phase2_name": "Колосс Пробуждённый",
 		"gun": [540.0, 15, 24.0, 0.9, 18.0], "clip": 6, "reload": 2.5,
 		"keep": [160.0, 480.0], "jump": 0.0,
 		"abilities": {"quake": 11.0, "grenade": 7.0, "barrage": 13.0, "shell": 8.0, "shockwave": 8.0,
 				"chain_pull": 10.0, "summon": 26.0}, "mortars": 8,
 		"front_armor": 0.85, "turn_time": 1.2, "quake_stun": 2.5,
 		"hint": "Спереди Колосса не пробить — бей в спину! Перепрыгивай ударную волну, уходи с линии цепи. Ранен — он злится и бьёт чаще, а раскалившись, слабеет сзади ещё сильнее.",
-		"hint2": "Броня разбита — бей с любой стороны! Прыгай через огненный рывок и столбы пламени, следи за тенью с неба. После «Сверхновой» Колосс выдыхается — тогда урон по нему двойной.",
+		"hint2": "Броня разбита — остался железный остов, бей с любой стороны! После огненного рывка и прыжка-метеора грудь раскрывается: бей спереди в ядро — урон ×1,5! Прыгай через рывок и столбы пламени, следи за тенью с неба. После «Сверхновой» остов выдыхается — урон по нему двойной.",
 	},
 	# ----- гоблины джунглей -----
 	"goblin": {
@@ -95,7 +95,7 @@ const TYPES := {
 	# ----- мини-босс 15-й волны и босс 20-й -----
 	"chief": {
 		"name": "Вождь гоблинов", "color": Color(0.60, 0.56, 0.22), "size": Vector2(64, 88),
-		"hp": 1300, "speed": 260.0, "decor": "chief", "boss": true,
+		"hp": 1400, "speed": 260.0, "decor": "chief", "boss": true, "tempo": 0.85, "dmg_mult": 0.85,
 		"gun": [0.0, 12, 0.0, 1.0, 0.0], "clip": 3, "reload": 1.8, "gun_kind": "spear", "range": 1000.0,
 		"keep": [300.0, 700.0], "jump": 0.2,
 		"abilities": {"volley": 7.0, "warcry": 15.0, "summon": 22.0, "smoke": 12.0},
@@ -103,7 +103,7 @@ const TYPES := {
 	},
 	"treant": {
 		"name": "Древний Энт", "color": Color(0.42, 0.30, 0.18), "size": Vector2(150, 215),
-		"hp": 2200, "speed": 110.0, "decor": "treant", "boss": true, "eye": Color(0.5, 1.0, 0.3),
+		"hp": 1200, "speed": 110.0, "decor": "treant", "boss": true, "tempo": 0.95, "dmg_mult": 0.95, "eye": Color(0.5, 1.0, 0.3),
 		"gun": [0.0, 14, 0.0, 1.4, 0.0], "clip": 4, "reload": 2.4, "gun_kind": "spear", "payload": "seed",
 		"range": 1100.0, "keep": [250.0, 700.0], "jump": 0.0,
 		"abilities": {"roots": 6.0, "spores": 13.0, "summon": 25.0},
@@ -111,7 +111,7 @@ const TYPES := {
 	},
 	"totem": {
 		"name": "Тотем жизни", "color": Color(0.50, 0.36, 0.20), "size": Vector2(40, 80),
-		"hp": 140, "speed": 0.0, "decor": "totem", "eye": Color(0.5, 1.0, 0.3),
+		"hp": 80, "speed": 0.0, "decor": "totem", "eye": Color(0.5, 1.0, 0.3),
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [0.0, 99999.0], "jump": 0.0, "abilities": {},
 	},
@@ -148,7 +148,7 @@ const TYPES := {
 	},
 	"witch": {
 		"name": "Ведьма Полынь", "color": Color(0.62, 0.72, 0.55), "size": Vector2(56, 84),
-		"hp": 1400, "speed": 230.0, "decor": "", "boss": true, "raid_brain": true,
+		"hp": 1300, "speed": 230.0, "decor": "", "boss": true, "tempo": 1.10, "dmg_mult": 1.80, "raid_brain": true,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [350.0, 700.0], "jump": 0.05,
 		"abilities": {"hex": 6.0, "flask_volley": 7.5, "witch_blink": 9.0, "summon": 18.0},
@@ -187,10 +187,10 @@ const TYPES := {
 	},
 	"bog_lord": {
 		"name": "Трясинный Владыка", "color": Color(0.26, 0.30, 0.20), "size": Vector2(170, 200),
-		"hp": 3400, "speed": 120.0, "decor": "", "boss": true, "eye": Color(1.0, 0.85, 0.3), "raid_brain": true,
+		"hp": 2100, "speed": 120.0, "decor": "", "boss": true, "dmg_mult": 1.60, "eye": Color(1.0, 0.85, 0.3), "raid_brain": true,
 		"gun": [0.0, 14, 0.0, 1.8, 0.0], "clip": 3, "reload": 2.6, "gun_kind": "spear", "payload": "mud",
 		"range": 1000.0, "keep": [200.0, 600.0], "jump": 0.0,
-		"abilities": {"submerge": 11.0, "mud_wave": 8.0, "gas_burst": 10.0, "roots": 9.0, "summon": 22.0},
+		"abilities": {"submerge": 12.0, "mud_wave": 8.0, "gas_burst": 10.0, "roots": 9.0, "summon": 26.0},
 		"hint": "Владыка ныряет в трясину и вылезает прямо под тобой — смотри на пузыри! Перепрыгивай волну грязи и не стой у газовых пузырей.",
 	},
 	# Хрустальная приманка Призмы (способность «Преломление»): стоит и отвлекает врагов
@@ -227,7 +227,7 @@ const TYPES := {
 	},
 	"sergeant": {
 		"name": "Десятник Гнилозуб", "color": Color(0.36, 0.30, 0.30), "size": Vector2(60, 86),
-		"hp": 650, "speed": 240.0, "decor": "", "boss": true,
+		"hp": 1250, "speed": 240.0, "decor": "", "boss": true, "tempo": 1.25,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [60.0, 140.0], "jump": 0.08, "swing": 16,
 		"abilities": {"swing": 2.2, "slam": 7.0, "warcry": 15.0, "summon": 18.0},
@@ -272,7 +272,7 @@ const TYPES := {
 	},
 	"ataman": {
 		"name": "Атаман Чёрный Вепрь", "color": Color(0.30, 0.20, 0.18), "size": Vector2(76, 104),
-		"hp": 1150, "speed": 230.0, "decor": "", "boss": true, "raid_brain": true,
+		"hp": 1250, "speed": 230.0, "decor": "", "boss": true, "tempo": 1.20, "raid_brain": true,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [70.0, 180.0], "jump": 0.05, "swing": 24,
 		"abilities": {"swing": 2.3, "whirlwind": 9.0, "powder_keg": 8.0, "summon": 20.0},
@@ -379,7 +379,7 @@ const TYPES := {
 	},
 	"spider_queen": {
 		"name": "Паучья королева", "color": Color(0.28, 0.12, 0.22), "size": Vector2(130, 70),
-		"hp": 1500, "speed": 260.0, "decor": "", "boss": true,
+		"hp": 1750, "speed": 260.0, "decor": "", "boss": true, "tempo": 1.20,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [80.0, 400.0], "jump": 0.1, "melee": 14,
 		"abilities": {"pounce": 5.0, "web_volley": 7.0, "summon": 18.0},
@@ -387,7 +387,7 @@ const TYPES := {
 	},
 	"skeleton_king": {
 		"name": "Король скелетов", "color": Color(0.90, 0.88, 0.80), "size": Vector2(100, 175),
-		"hp": 2800, "speed": 150.0, "decor": "", "boss": true,
+		"hp": 1800, "speed": 150.0, "decor": "", "boss": true, "tempo": 1.15, "dmg_mult": 1.80,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [80.0, 300.0], "jump": 0.03, "swing": 30,
 		"abilities": {"swing": 2.4, "bone_wave": 7.0, "bone_storm": 10.0, "summon": 24.0},
@@ -432,7 +432,7 @@ const TYPES := {
 	},
 	"baron_gryz": {
 		"name": "Барон Грызь", "color": Color(0.45, 0.18, 0.22), "size": Vector2(150, 112),
-		"hp": 1800, "speed": 190.0, "decor": "", "boss": true,
+		"hp": 2200, "speed": 190.0, "decor": "", "boss": true, "tempo": 1.30, "dmg_mult": 1.15,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [90.0, 450.0], "jump": 0.0, "melee": 14, "swing": 26, "back_mult": 2.0,
 		"abilities": {"swing": 2.6, "burrow": 9.0, "dynamite_bundle": 6.0, "cart_call": 13.0}, "brain": true,
@@ -489,7 +489,7 @@ const TYPES := {
 	},
 	"irida": {
 		"name": "Ирида, Хранительница Сердца", "color": Color(0.70, 0.75, 1.0), "size": Vector2(100, 175),
-		"hp": 3500, "speed": 170.0, "decor": "", "boss": true, "eye": Color(0.95, 0.85, 1.0),
+		"hp": 1800, "speed": 170.0, "decor": "", "boss": true, "tempo": 1.20, "dmg_mult": 2.00, "eye": Color(0.95, 0.85, 1.0),
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [300.0, 700.0], "jump": 0.0, "brain": true,
 		"abilities": {"rainbow_beam": 5.0, "spike_trail": 7.5, "mirror_images": 24.0, "shatter": 12.0, "summon": 26.0},
@@ -535,7 +535,7 @@ const TYPES := {
 	},
 	"jotun": {
 		"name": "Ётун Стужа", "color": Color(0.55, 0.68, 0.86), "size": Vector2(130, 190),
-		"hp": 1750, "speed": 170.0, "decor": "", "boss": true, "eye": Color(0.6, 0.95, 1.0), "far_brain": true,
+		"hp": 1450, "speed": 170.0, "decor": "", "boss": true, "dmg_mult": 1.80, "eye": Color(0.6, 0.95, 1.0), "far_brain": true,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [80.0, 260.0], "jump": 0.0, "swing": 26,
 		"abilities": {"swing": 2.4, "frost_breath": 7.0, "icicle_rain": 10.0, "ice_armor": 15.0, "glacier_wave": 9.0, "summon": 22.0},
@@ -575,7 +575,7 @@ const TYPES := {
 	},
 	"storm_lord": {
 		"name": "Громовник, Владыка Бури", "color": Color(0.32, 0.38, 0.54), "size": Vector2(110, 190),
-		"hp": 3700, "speed": 165.0, "decor": "", "boss": true, "eye": Color(0.92, 0.98, 1.0), "far_brain": true,
+		"hp": 2900, "speed": 165.0, "decor": "", "boss": true, "tempo": 1.30, "dmg_mult": 1.60, "eye": Color(0.92, 0.98, 1.0), "far_brain": true,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [260.0, 650.0], "jump": 0.0,
 		"abilities": {"chain_lightning": 5.0, "storm_call": 8.0, "tornado": 12.0, "wind_blast": 9.0, "overload_storm": 19.0, "summon": 24.0},
@@ -626,7 +626,7 @@ const TYPES := {
 	},
 	"cerberus": {
 		"name": "Цербер", "color": Color(0.20, 0.12, 0.12), "size": Vector2(190, 120),
-		"hp": 2050, "speed": 300.0, "decor": "", "boss": true, "eye": Color(1.0, 0.75, 0.2), "far_brain": true, "fireproof": true,
+		"hp": 3000, "speed": 300.0, "decor": "", "boss": true, "tempo": 0.85, "dmg_mult": 0.85, "eye": Color(1.0, 0.75, 0.2), "far_brain": true, "fireproof": true,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [80.0, 320.0], "jump": 0.08, "melee": 14,
 		"abilities": {"pounce": 5.0, "triple_fire": 6.5, "howl_imps": 16.0, "lava_charge": 9.0, "bite": 2.6},
@@ -667,9 +667,9 @@ const TYPES := {
 	},
 	"dark_lord": {
 		"name": "Тёмный Лорд", "color": Color(0.21, 0.19, 0.23), "size": Vector2(120, 200),
-		"hp": 3600, "speed": 200.0, "decor": "", "boss": true, "eye": Color(1.0, 0.55, 0.15), "far_brain": true,
-		"phase2_hp": 2800, "phase2_name": "Тёмный Лорд — истинный облик",
-		"phase3_hp": 2600, "phase3_hand_hp": 340,
+		"hp": 1600, "speed": 200.0, "decor": "", "boss": true, "tempo": 1.15, "dmg_mult": 1.60, "eye": Color(1.0, 0.55, 0.15), "far_brain": true,
+		"phase2_hp": 1200, "phase2_name": "Тёмный Лорд — истинный облик",
+		"phase3_hp": 1100, "phase3_hand_hp": 150,
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [80.0, 320.0], "jump": 0.0, "swing": 30,
 		"abilities": {"swing": 2.2, "dark_wave": 6.0, "shadow_dash": 8.0, "dark_orbs": 7.0, "eclipse": 24.0, "summon": 26.0},
@@ -690,14 +690,191 @@ const TYPES := {
 		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
 		"keep": [20.0, 40.0], "jump": 0.3, "melee": 6, "abilities": {},
 	},
+	# ----- Свита Странника: Летающие острова и горящая окраина (волны 81–90) -----
+	# Способности — RiftAbilities, особое поведение — RiftBrain, модели — RiftRig.
+	# "range": 1.0 — стреляют только способностями (а в бестиарии виден урон выстрела).
+	"rift_blade": {
+		"name": "Отрёкшийся", "color": Color(0.17, 0.15, 0.22), "size": Vector2(40, 64),
+		"hp": 240, "speed": 340.0, "decor": "",
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [50.0, 110.0], "jump": 0.2, "swing": 18, "abilities": {"swing": 1.7, "rift_step": 6.0},
+	},
+	"rift_archer": {
+		"name": "Стрелок разлома", "color": Color(0.17, 0.15, 0.22), "size": Vector2(40, 62),
+		"hp": 170, "speed": 300.0, "decor": "",
+		"gun": [0.0, 9, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [480.0, 880.0], "jump": 0.15, "abilities": {"rift_bolt": 1.3, "pin_volley": 7.5},
+	},
+	"rift_caller": {
+		"name": "Призывательница", "color": Color(0.28, 0.18, 0.36), "size": Vector2(40, 66),
+		"hp": 210, "speed": 250.0, "decor": "",
+		"gun": [0.0, 8, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [520.0, 900.0], "jump": 0.1, "abilities": {"void_orb": 2.6, "open_rift": 10.0, "veil": 8.0},
+	},
+	"rift_spawn": {
+		"name": "Порождение разлома", "color": Color(0.24, 0.16, 0.30), "size": Vector2(46, 30),
+		"hp": 70, "speed": 430.0, "decor": "", "rift_brain": true,
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [15.0, 35.0], "jump": 0.3, "melee": 8, "abilities": {"pounce": 4.0},
+	},
+	"rift_brute": {
+		"name": "Разрыватель", "color": Color(0.24, 0.20, 0.26), "size": Vector2(66, 92),
+		"hp": 620, "speed": 210.0, "decor": "",
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [60.0, 160.0], "jump": 0.05, "swing": 26, "stagger": 0.25,
+		"abilities": {"swing": 2.4, "void_grasp": 7.5, "gravity_slam": 9.5},
+	},
+	"rift_eye": {
+		"name": "Око разлома", "color": Color(0.24, 0.16, 0.28), "size": Vector2(44, 44),
+		"hp": 190, "speed": 230.0, "decor": "", "flying": true, "rift_brain": true,
+		"gun": [0.0, 18, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [0.0, 99999.0], "jump": 0.0, "abilities": {"gaze": 5.0},
+	},
+	"rift_bearer": {
+		"name": "Носитель осколка", "color": Color(0.24, 0.20, 0.24), "size": Vector2(60, 86),
+		"hp": 520, "speed": 170.0, "decor": "", "rift_brain": true,
+		"gun": [0.0, 12, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [280.0, 560.0], "jump": 0.05, "stagger": 0.3, "abilities": {"shard_burst": 6.0},
+	},
+	"voidwing": {
+		"name": "Пустокрыл", "color": Color(0.26, 0.18, 0.40), "size": Vector2(240, 100),
+		"hp": 2200, "speed": 300.0, "decor": "", "boss": true, "tempo": 1.25, "dmg_mult": 1.60, "flying": true, "rift_brain": true, "eye": Color(0.98, 0.86, 1.0),
+		"gun": [0.0, 26, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [0.0, 99999.0], "jump": 0.0,
+		"abilities": {"void_rain": 6.0, "swoop": 8.5, "wing_gust": 11.0, "sky_rift": 17.0},
+		"hint": "Пустокрыл ныряет по видимой дуге — уйди с неё! Врезавшись в остров, он выдыхается: бей, урон ×2. Взмах крыльев сдувает к пропастям — держись за середину острова.",
+	},
+	"harbinger": {
+		"name": "Предвестник", "color": Color(0.13, 0.10, 0.17), "size": Vector2(110, 200),
+		"hp": 1800, "speed": 210.0, "decor": "", "boss": true, "rift_brain": true, "eye": Color(0.98, 0.86, 1.0),
+		"phase2_hp": 1900, "phase2_name": "Предвестник — грань открыта",
+		"gun": [0.0, 22, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [90.0, 320.0], "jump": 0.0, "swing": 22,
+		"abilities": {"glaive_combo": 2.6, "rift_cut": 6.5, "phase_step": 7.5, "mark_storm": 8.5, "harvest": 12.0, "summon": 20.0},
+		"hint": "Метки разлома копятся над головой — третья схлопывается. «Жатва» забирает метки: чем меньше их на тебе, тем слабее он лечится. Разрез по земле — прыгай, столбы — отойди.",
+		"hint2": "Грань открыта: осколки падают в круги, воронка тянет к себе. «Схлопывание» — бей изо всех сил, пока полоса не заполнится: сорвёшь заряд — он рухнет оглушённым!",
+	},
+	# ----- Ветряные холмы (волны 91–95): бездна проросла в мирный край -----
+	"hollow_farmer": {
+		"name": "Опустошённый", "color": Color(0.74, 0.66, 0.48), "size": Vector2(40, 62),
+		"hp": 230, "speed": 330.0, "decor": "", "eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [50.0, 110.0], "jump": 0.2, "swing": 17, "abilities": {"swing": 1.7, "lunge": 5.0},
+	},
+	"void_crow": {
+		"name": "Ворон разлома", "color": Color(0.30, 0.16, 0.40), "size": Vector2(38, 28), "rig": "crow",
+		"hp": 70, "speed": 420.0, "decor": "", "flying": true, "tint": Color(1.0, 0.75, 1.35),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [0.0, 99999.0], "jump": 0.0, "melee": 8, "abilities": {"dive": 3.0, "void_blink": 4.5},
+	},
+	"straw_golem": {
+		"name": "Соломенный исполин", "color": Color(0.86, 0.72, 0.40), "size": Vector2(70, 100),
+		"hp": 560, "speed": 200.0, "decor": "", "eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [120.0, 420.0], "jump": 0.05, "swing": 24, "stagger": 0.3,
+		"abilities": {"swing": 2.4, "slam": 6.0, "bale_toss": 5.0},
+	},
+	"mill_giant": {
+		"name": "Мельник Жернов", "color": Color(0.90, 0.88, 0.82), "size": Vector2(120, 176),
+		"hp": 1550, "speed": 170.0, "decor": "", "boss": true, "tempo": 1.2, "dmg_mult": 1.5, "abyss_brain": true,
+		"eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [140.0, 480.0], "jump": 0.0, "swing": 26,
+		"abilities": {"swing": 2.4, "mill_roll": 6.0, "grain_rain": 8.0, "flour_burst": 11.0, "slam": 7.0, "summon": 20.0},
+		"hint": "Жернов катится по земле — перепрыгни! Мешки падают в круги. В облаке муки ты вязнешь — выбирайся. С половины здоровья бездна овладевает Мельником: он раскручивается и тянет к себе.",
+	},
+	"void_shepherd": {
+		"name": "Пастух Разлома", "color": Color(0.60, 0.50, 0.40), "size": Vector2(64, 112),
+		"hp": 1450, "speed": 190.0, "decor": "", "boss": true, "tempo": 1.2, "dmg_mult": 1.5, "abyss_brain": true,
+		"eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [200.0, 620.0], "jump": 0.0, "swing": 20,
+		"abilities": {"swing": 2.4, "stampede": 7.0, "crook_pull": 6.0, "blight_sow": 8.0, "bell_toll": 12.0},
+		"hint": "Стадо бездны несётся по полю — перепрыгни баранов или уйди на площадку! Крюк тянет к пастуху, пятна порчи жгут. С половины здоровья стадо бежит с обеих сторон.",
+	},
+	# ----- Сердце Бездны: только сложная Арена (волны 101–103) -----
+	"abyss_lord": {
+		"name": "Лорд Бездны", "color": Color(0.21, 0.19, 0.23), "size": Vector2(130, 214),
+		"hp": 2300, "speed": 200.0, "decor": "", "boss": true, "tempo": 1.15, "dmg_mult": 1.60, "eye": Color(0.85, 0.5, 1.0), "lord_brain": true,
+		"phase3_hp": 1100, "phase3_hand_hp": 150,
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [80.0, 320.0], "jump": 0.0, "swing": 30,
+		"abilities": {"swing": 2.0},
+		"hint": "Доспех бездны гасит урон — бей, когда после «Клинка затмения» у Лорда раскрывается сердце! Во тьме заманивай его в Столпы рассвета: свет обжигает и оглушает. Пока целы Якоря Бездны, Лорд неуязвим — разбей их.",
+		"hint2": "Истинный облик: метеоры с неба, столбы адского пламени и чёрная дыра. После чёрной дыры Лорд выдыхается — камень в груди гаснет, и урон по нему двойной!",
+		"hint3": "Воплощение Тьмы: тень на полу — туда упадёт кулак, после удара волна по полу — перепрыгни. Сломай обе руки — голова опустится к полу, и урон по ней двойной!",
+	},
+	"mad_wanderer": {
+		"name": "Странник, поглощённый бездной", "color": Color(0.30, 0.28, 0.36), "size": Vector2(54, 104),
+		"hp": 1150, "speed": 340.0, "decor": "", "boss": true, "mad_brain": true, "rig": "wanderer", "eye": Color(1.0, 0.45, 0.85),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [160.0, 420.0], "jump": 0.0, "swing": 22,
+		"abilities": {"staff_strike": 2.2, "void_bolt": 3.2},
+		"hint": "Он не сдерживается. Когда начинается «Пожирание» — бей в сердце бездны в его груди: собьёшь заряд — он рухнет, и сердце будет открыто. Не собьёшь — волна по всей арене.",
+	},
+	"void_anchor": {
+		"name": "Якорь Бездны", "color": Color(0.24, 0.16, 0.28), "size": Vector2(44, 44),
+		"hp": 260, "speed": 0.0, "decor": "", "flying": true, "rig": "rift_eye",
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [0.0, 99999.0], "jump": 0.0, "abilities": {},
+	},
+	# ----- Дворец Бездны (волны 96–100) -----
+	"void_guard": {
+		"name": "Страж Дворца", "color": Color(0.14, 0.10, 0.18), "size": Vector2(52, 74),
+		"hp": 400, "speed": 230.0, "decor": "", "eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [60.0, 140.0], "jump": 0.05, "swing": 24, "front_armor": 0.6, "stagger": 0.3,
+		"abilities": {"swing": 2.2, "lunge": 6.5, "void_grasp": 9.0},
+	},
+	"void_mage": {
+		"name": "Чтец Бездны", "color": Color(0.24, 0.10, 0.34), "size": Vector2(40, 66),
+		"hp": 220, "speed": 250.0, "decor": "", "eye": Color(0.85, 0.55, 1.0),
+		"gun": [0.0, 10, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [420.0, 820.0], "jump": 0.1, "abilities": {"void_orb": 2.4, "veil": 9.0, "portal_bolts": 8.0},
+	},
+	"abyss_headsman": {
+		"name": "Палач Бездны", "color": Color(0.55, 0.46, 0.62), "size": Vector2(110, 160),
+		"hp": 1750, "speed": 190.0, "decor": "", "boss": true, "tempo": 1.2, "dmg_mult": 1.5, "abyss_brain": true,
+		"eye": Color(0.92, 0.65, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [100.0, 380.0], "jump": 0.0, "swing": 28,
+		"abilities": {"swing": 2.2, "chain_hook": 6.5, "cleave_line": 7.0, "execution_leap": 9.0, "summon": 22.0},
+		"hint": "Палач кидает цепь с крюком: видна линия — уйди с неё, иначе подтянет. Разрез бежит по земле — прыгай. Перед прыжком-казнью на земле вспыхивает круг — выбегай.",
+	},
+	"rift_weaver": {
+		"name": "Ткачиха Разлома", "color": Color(0.30, 0.16, 0.42), "size": Vector2(84, 150),
+		"hp": 1600, "speed": 200.0, "decor": "", "boss": true, "tempo": 1.2, "dmg_mult": 1.5, "abyss_brain": true,
+		"eye": Color(0.98, 0.86, 1.0),
+		"gun": [0.0, 12, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [380.0, 760.0], "jump": 0.0,
+		"abilities": {"thread_lines": 6.5, "portal_bolts": 6.0, "silk_snare": 7.5, "weave_clones": 15.0, "summon": 22.0},
+		"hint": "Ткачиха натягивает нити поперёк поля — пока они тонкие, уйди с линии. Паутина опутывает: увернись от белого сгустка. Отражения бьют болтами, но рассыпаются от одного удара.",
+	},
+	"weaver_echo": {
+		"name": "Отражение Ткачихи", "color": Color(0.30, 0.16, 0.42), "size": Vector2(60, 108), "rig": "rift_weaver",
+		"hp": 90, "speed": 220.0, "decor": "", "tint": Color(0.75, 0.95, 1.25, 0.75),
+		"gun": [0.0, 9, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 1.0,
+		"keep": [380.0, 760.0], "jump": 0.0, "abilities": {"rift_bolt": 1.6},
+	},
+	"wanderer": {
+		"name": "Странник", "color": Color(0.30, 0.28, 0.36), "size": Vector2(54, 104),
+		"hp": 760, "speed": 260.0, "decor": "", "boss": true, "wanderer_brain": true, "eye": Color(0.98, 0.86, 1.0),
+		"gun": [0.0, 0, 0.0, 99.0, 0.0], "clip": 1, "reload": 99.0, "range": 0.0,
+		"keep": [160.0, 420.0], "jump": 0.0, "swing": 22,
+		"abilities": {"staff_strike": 2.2, "void_bolt": 3.2},
+		"hint": "Странник не спешит: вымеряет каждый удар и уходит от выстрелов шагом сквозь грань. Ему не важна битва — он проверяет свою новую силу.",
+	},
 }
+
 
 # Кого призывают боссы и некромант
 const SUMMONS := {"chief": "goblin", "treant": "goblin", "necromancer": "skeleton",
 		"spider_queen": "spider", "skeleton_king": "skel_sword", "irida": "shardling",
 		"sergeant": "minion", "ataman": "bandit_thug", "beastmaster": "lion", "colossus": "fighter",
 		"scarecrow": "crow", "witch": "crow", "bog_lord": "frogman",
-		"jotun": "snow_wolf", "storm_lord": "ball_lightning", "cerberus": "fire_imp", "dark_lord": "dark_knight"}
+		"jotun": "snow_wolf", "storm_lord": "ball_lightning", "cerberus": "fire_imp", "dark_lord": "dark_knight",
+		"rift_caller": "rift_spawn", "voidwing": "rift_spawn", "harbinger": "rift_blade",
+		"mill_giant": "hollow_farmer", "void_shepherd": "void_crow", "abyss_headsman": "rift_spawn", "rift_weaver": "rift_spawn", "wanderer": "rift_blade"}
 
 # Кто где встречается (для бестиария)
 const LOCATIONS := {
@@ -715,6 +892,10 @@ const LOCATIONS := {
 	"storm": ["storm_acolyte", "temple_guard", "harpy", "ball_lightning", "thunder_priest", "storm_lord"],
 	"lava": ["fire_imp", "magma_blob", "magma_blob_s", "salamander", "obsidian_golem", "ash_walker", "fire_cultist", "cerberus"],
 	"throne": ["dark_knight", "warlock", "shade", "gargoyle", "executioner", "dark_lord"],
+	"rift": ["rift_blade", "rift_archer", "rift_caller", "rift_spawn", "rift_brute", "rift_eye", "rift_bearer", "voidwing", "harbinger"],
+	"hills": ["hollow_farmer", "void_crow", "straw_golem", "void_shepherd"],
+	"palace": ["void_guard", "void_mage", "abyss_headsman", "rift_weaver", "weaver_echo", "wanderer"],
+	"heart": ["abyss_lord", "void_anchor", "mad_wanderer"],
 }
 
 # Описания для бестиария
@@ -752,14 +933,14 @@ const LORE := {
 	"murmillo": "Тяжёлый гладиатор с огромным щитом. Спереди почти неуязвим, а ударом щита оглушает.",
 	"lion": "Голодный зверь из подвалов Колизея. Прыгает издалека, а от его рыка всё вокруг замирает.",
 	"gladiator": "Любимец публики. Разбегается напролом, крутится вихрем с мечом и бросает веер копий. О стену бьётся головой — и тогда беззащитен.",
-	"colossus": "Чудовищная живая крепость — хозяин Колизея. Спереди не пробить, бьёт волной по земле, подтягивает цепью, а раненый — раскаляется добела. Говорят, повергнуть его мало: в груди у Колосса бьётся огненное сердце.",
+	"colossus": "Чудовищная живая крепость — хозяин Колизея. Спереди не пробить, бьёт волной по земле, подтягивает цепью, а раненый — раскаляется добела. Говорят, повергнуть его мало: под бронёй — железный остов, а в груди за рёбрами бьётся огненное ядро.",
 	"goblin": "Обычный житель джунглей с копьём. Поодиночке слаб, толпой опасен.",
 	"sneak": "Тихий охотник в капюшоне. Прячется за дымом и кусает исподтишка.",
 	"bomber": "Обожает всё, что взрывается. Носит сумку бомб и не боится ими делиться.",
 	"shaman": "Знахарь племени. Лечит сородичей и напускает дым. Бей его первым!",
 	"brute": "Самый большой гоблин в деревне. Бьёт кулаками по земле так, что трясётся всё вокруг.",
 	"chief": "Вождь гоблинов. Боевым кличем лечит и ускоряет своих, зовёт подмогу.",
-	"treant": "Древний страж джунглей. Пока стоят Тотемы жизни, его не ранить. За бой тотемы вырастают трижды: один, три и четыре.",
+	"treant": "Древний страж джунглей. Пока стоят Тотемы жизни, его не ранить. За бой тотемы вырастают трижды: один, потом два, потом три.",
 	"totem": "Резной столб, питающий Энта силой леса. Пока стоит хоть один — Энт неуязвим.",
 	"skeleton": "Просто кости, без оружия и доспехов. Хрупкий — рассыпается от пары выстрелов.",
 	"skel_sword": "Страж древнего королевства. Ржавый доспех и меч, который всё ещё режет.",
@@ -809,6 +990,29 @@ const LORE := {
 	"gargoyle": "Каменная горгулья с карнизов зала. Пикирует сверху, а когда каменеет — её не ранить.",
 	"executioner": "Палач Тёмного лорда. Забрасывает цепь с крюком, подтягивает к себе и бьёт огромным топором.",
 	"dark_lord": "Тёмный Лорд — один из тех, кто держит мир во тьме, и тот, чьи приспешники встретили тебя ещё на Лесной тропе. Рассекает воздух волнами тьмы и гасит свет в зале. Повергнутый, он встаёт снова — на огненных крыльях, а потом отдаёт себя тьме целиком. Говорят, камень в его груди — его истинное сердце.",
+	"rift_blade": "Отрёкшийся — простой воин свиты Странника. Бледная маска с щелью вместо лица и два серпа. Шагает сквозь грань: за спиной у жертвы раскрывается щель — и он уже там.",
+	"rift_archer": "Стрелок разлома. Его болты оставляют на цели метку — три метки схлопываются ударом. Перед залпом видны три линии прицела.",
+	"rift_caller": "Призывательница свиты. Открывает разломы, из которых лезут порождения, укрывает своих щитом и пускает медленные сферы пустоты.",
+	"rift_spawn": "Тварь, вылезшая из разлома. Быстрая и злая, а погибая — хлопает пустотой. Не добивай её вплотную!",
+	"rift_brute": "Разрыватель — великан с латной дланью, напитанной силой разлома. Длань летит по земле и подтаскивает к нему, а удар оземь закручивает воронку.",
+	"rift_eye": "Око разлома — парящий глаз в кольце осколков. Долго смотрит: тонкий луч ведёт цель… а потом бьёт настоящий.",
+	"rift_bearer": "Носит на спине осколок силы, ради которой свита и пришла. Пока он рядом, остальные крепче — к ним тянутся фиолетовые нити. Разбитый осколок оставляет пустоту на земле.",
+	"voidwing": "Пустокрыл — небесный скат с летающих островов, которого сила разлома сделала чудовищем. Ныряет по дуге, сдувает ветром и разрывает небо, выпуская порождений.",
+	"harbinger": "Предвестник — первый из Отрёкшихся. Говорят, он идёт впереди Странника и открывает ему дорогу. Его глефа режет само пространство, а метки на героях он забирает себе.",
+	"hollow_farmer": "Крестьянин с Ветряных холмов. Разлом над полями выпил из него всё, кроме злобы: глаза светятся фиолетовым, вилы бьют без промаха, а сам он делает резкий выпад.",
+	"void_crow": "Ворон, налетевшийся у разлома. Пикирует на добычу, а потом исчезает и появляется у неё за спиной — шаг сквозь грань.",
+	"straw_golem": "Пугало, которое бездна раздула в великана. Бьёт снопом, топает и швыряет горящие тюки соломы.",
+	"abyss_lord": "Лорд Бездны. Тёмный Лорд не погиб — бездна подобрала то, что от него осталось, и собрала заново. Доспех из её камня гасит удары, корона из осколков тянет силу из самой Изнанки. Сердце в его груди раскрывается лишь после самых тяжёлых ударов, а свет рассвета, которого он так боялся, до сих пор обжигает.",
+	"mad_wanderer": "Странник, поглощённый бездной. Он хотел найти за гранью больше силы — и нашёл. Бездна проникла в его сердце и завладела им: он больше не сдерживается и не выбирает, с кем драться. Сердце бездны в его груди — единственное, что ещё можно поразить.",
+	"void_anchor": "Якорь Бездны. Око на цепи, которым Лорд Бездны держится за Изнанку. Пока якоря целы, Лорда не ранить.",
+	"void_shepherd": "Пастух Разлома. Его стадо первым ушло в трещину в небе — и вернулось оттуда с лиловыми рогами и пустыми глазами. Пастух пошёл за ним и вернулся тоже. Теперь гонит стадо бездны по полям, бросает посох-крюк и сеет порчу, а колокол на посохе зовёт баранов.",
+	"mill_giant": "Мельник Жернов. Хозяин самой большой мельницы на холмах. Когда небо треснуло, он молол зерно до утра — и бездна вошла в него вместе с мукой. Катит жернова, сыплет мешки с неба, а когда бездна овладевает им совсем — раскручивается, как мельница в бурю.",
+	"void_guard": "Страж Дворца Бездны в чёрных латах. Спереди почти неуязвим — заходи со спины. Делает выпад и хватает тянущейся рукой пустоты.",
+	"void_mage": "Чтец Бездны. Читает свитки, написанные на изнанке мира: пускает самонаводящиеся сгустки, открывает порталы, из которых бьют болты, и прячется под пеленой.",
+	"abyss_headsman": "Палач Бездны — тот, кто исполняет приговоры Странника. Кидает цепь с крюком и подтягивает к себе, рассекает землю тесаком и обрушивается сверху.",
+	"rift_weaver": "Ткачиха Разлома ткёт саму ткань мира: натягивает нити поперёк поля — те вспыхивают и режут, открывает порталы, опутывает паутиной и плетёт свои отражения.",
+	"weaver_echo": "Отражение Ткачихи. Сплетено из нитей разлома: пускает болты, но рассыпается от одного-двух ударов.",
+	"wanderer": "Странник. Когда-то — просто путник, обошедший весь мир. Нашёл источник силы бездны и поглотил его. Ему не нужна власть и не нужна битва — он хочет понять, на что теперь способен. Бьётся осторожно, вымеряя каждый удар… пока не почувствует, что сил мало.",
 }
 
 # Волны (на волнах с боссом выходит только сам босс — без подкрепления):
@@ -828,6 +1032,8 @@ const LORE := {
 #   66–70 — Храм шторма, на 70-й босс Громовник, Владыка Бури;
 #   71–75 — Лавовые просторы, на 75-й мини-босс Цербер;
 #   76–80 — Тронный зал Тёмного лорда, на 80-й — сам Тёмный Лорд.
+#   81–85 — Летающие острова, свита Странника, на 85-й мини-босс Пустокрыл;
+#   86–90 — Окраина деревни в огне, на 90-й босс Предвестник.
 # Солдаты, танки, артиллеристы и пробойщики остались в проекте — для будущей арены.
 const WAVES := [
 	{"minion": 2},
@@ -840,76 +1046,102 @@ const WAVES := [
 	{"bandit_thug": 2, "bandit_kunai": 2, "bandit_torch": 1},
 	{"bandit_brute": 1, "bandit_bola": 1, "bandit_shuriken": 1, "bandit_kunai": 1, "bandit_torch": 1},
 	{"ataman": 1},
-	{"goblin": 3},
-	{"goblin": 3, "sneak": 2},
-	{"goblin": 2, "bomber": 2, "sneak": 1},
-	{"goblin": 3, "shaman": 1, "sneak": 2},
+	{"goblin": 4, "sneak": 1},
+	{"goblin": 3, "sneak": 2, "bomber": 1},
+	{"goblin": 2, "bomber": 2, "sneak": 1, "shaman": 1},
+	{"goblin": 4, "shaman": 1, "sneak": 2},
 	{"chief": 1},
 	{"goblin": 4, "sneak": 2, "brute": 1},
 	{"bomber": 3, "shaman": 1, "goblin": 3},
 	{"brute": 2, "sneak": 3, "goblin": 2},
 	{"brute": 2, "bomber": 2, "shaman": 2, "goblin": 3},
 	{"treant": 1},
-	{"skeleton": 4},
-	{"skeleton": 3, "skel_thrower": 2},
-	{"skel_sword": 2, "skeleton": 2, "bat": 2},
-	{"skel_sword": 2, "skel_thrower": 2, "spider": 2},
+	{"skeleton": 5, "skel_sword": 2, "skel_thrower": 1},
+	{"skeleton": 4, "skel_thrower": 2, "skel_sword": 1, "bat": 2},
+	{"skel_sword": 3, "skeleton": 2, "bat": 2, "skel_thrower": 1},
+	{"skel_sword": 3, "skel_thrower": 2, "spider": 2},
 	{"spider_queen": 1},
-	{"skel_sword": 3, "bat": 3},
-	{"necromancer": 1, "skeleton": 3, "skel_thrower": 2},
-	{"spider": 3, "bat": 3, "skel_sword": 2},
+	{"skel_sword": 3, "bat": 3, "necromancer": 1},
+	{"necromancer": 1, "skeleton": 3, "skel_thrower": 2, "skel_sword": 2},
+	{"spider": 3, "bat": 3, "skel_sword": 2, "skel_thrower": 2},
 	{"necromancer": 2, "skel_sword": 2, "skel_thrower": 2, "bat": 2},
 	{"skeleton_king": 1},
-	{"kobold_miner": 3, "kobold_bomber": 1},
-	{"kobold_miner": 2, "gem_beetle": 2, "kobold_bomber": 1},
-	{"cart_rider": 1, "kobold_miner": 2, "gem_shaman": 1, "gem_beetle": 1},
+	{"kobold_miner": 4, "kobold_bomber": 2, "gem_beetle": 1},
+	{"kobold_miner": 3, "gem_beetle": 2, "kobold_bomber": 2},
+	{"cart_rider": 1, "kobold_miner": 3, "gem_shaman": 1, "gem_beetle": 1, "kobold_bomber": 1},
 	{"ruby_golem": 1, "kobold_bomber": 2, "gem_shaman": 1, "cart_rider": 1, "kobold_miner": 2},
 	{"baron_gryz": 1},
-	{"shardling": 3, "prismatic": 1},
-	{"crystal_guard": 1, "shardling": 2, "crystal_moth": 2},
-	{"mirror_double": 2, "prismatic": 1, "resonator": 1, "shardling": 1},
+	{"shardling": 4, "prismatic": 1, "crystal_moth": 2},
+	{"crystal_guard": 1, "shardling": 3, "crystal_moth": 2, "prismatic": 1},
+	{"mirror_double": 2, "prismatic": 1, "resonator": 1, "shardling": 1, "crystal_guard": 1},
 	{"crystal_guard": 2, "resonator": 1, "crystal_moth": 2, "mirror_double": 1, "prismatic": 1},
 	{"irida": 1},
-	{"fighter": 3, "thrower": 2},
-	{"fighter": 2, "slinger": 2, "retiarius": 1, "thrower": 1},
+	{"fighter": 4, "thrower": 2, "slinger": 1},
+	{"fighter": 2, "slinger": 2, "retiarius": 1, "thrower": 2},
 	{"murmillo": 1, "fighter": 2, "sagittarius": 2},
 	{"retiarius": 2, "lion": 2, "slinger": 2, "murmillo": 1},
 	{"gladiator": 1},
-	{"beastmaster": 1, "lion": 1, "fighter": 2, "sagittarius": 1},
+	{"beastmaster": 1, "lion": 1, "fighter": 2, "sagittarius": 1, "retiarius": 1},
 	{"murmillo": 2, "retiarius": 2, "thrower": 2},
-	{"sagittarius": 2, "beastmaster": 1, "fighter": 2, "slinger": 2},
+	{"sagittarius": 2, "beastmaster": 1, "fighter": 2, "slinger": 2, "thrower": 1},
 	{"murmillo": 2, "lion": 2, "retiarius": 1, "sagittarius": 2, "thrower": 1},
 	{"colossus": 1},
-	{"ghoul": 3, "crow": 2},
-	{"ghoul": 2, "scarecrow": 1, "wisp": 2},
-	{"deadwood": 1, "ghoul": 2, "crow": 3},
+	{"ghoul": 4, "crow": 3, "wisp": 1},
+	{"ghoul": 3, "scarecrow": 1, "wisp": 2, "crow": 1},
+	{"deadwood": 1, "ghoul": 2, "crow": 3, "wisp": 1},
 	{"scarecrow": 2, "deadwood": 1, "wisp": 2, "ghoul": 2},
 	{"witch": 1},
-	{"bogman": 2, "leech": 3},
-	{"frogman": 2, "bogman": 2, "mosquito": 2},
-	{"drowned": 1, "frogman": 2, "leech": 2, "wisp": 1},
+	{"bogman": 2, "leech": 3, "frogman": 1, "mosquito": 1},
+	{"frogman": 2, "bogman": 2, "mosquito": 2, "leech": 1},
+	{"drowned": 1, "frogman": 2, "leech": 2, "wisp": 1, "bogman": 1},
 	{"drowned": 2, "bogman": 2, "mosquito": 2, "frogman": 1},
 	{"bog_lord": 1},
-	{"snow_wolf": 3, "frost_archer": 1},
-	{"snow_wolf": 2, "frost_archer": 2, "ice_wraith": 1},
+	{"snow_wolf": 4, "frost_archer": 2, "ice_wraith": 1},
+	{"snow_wolf": 3, "frost_archer": 3, "ice_wraith": 1},
 	{"yeti": 1, "frost_knight": 1, "snow_wolf": 2, "ice_wraith": 1},
 	{"frost_knight": 2, "yeti": 1, "frost_archer": 2, "ice_wraith": 2},
 	{"jotun": 1},
-	{"storm_acolyte": 2, "harpy": 2},
-	{"temple_guard": 2, "storm_acolyte": 1, "ball_lightning": 2},
-	{"thunder_priest": 1, "temple_guard": 1, "harpy": 2, "storm_acolyte": 2},
+	{"storm_acolyte": 3, "harpy": 2, "temple_guard": 1, "ball_lightning": 1},
+	{"temple_guard": 2, "storm_acolyte": 1, "ball_lightning": 2, "harpy": 1},
+	{"thunder_priest": 1, "temple_guard": 1, "harpy": 2, "storm_acolyte": 3},
 	{"temple_guard": 2, "thunder_priest": 2, "ball_lightning": 2, "harpy": 1},
 	{"storm_lord": 1},
-	{"fire_imp": 3, "magma_blob": 2},
-	{"salamander": 2, "fire_imp": 2, "ash_walker": 1},
+	{"fire_imp": 4, "magma_blob": 2, "salamander": 1},
+	{"salamander": 2, "fire_imp": 2, "ash_walker": 1, "magma_blob": 1},
 	{"obsidian_golem": 1, "fire_cultist": 1, "magma_blob": 2, "salamander": 1},
 	{"obsidian_golem": 1, "ash_walker": 2, "fire_cultist": 2, "fire_imp": 2, "magma_blob": 1},
 	{"cerberus": 1},
-	{"dark_knight": 2, "shade": 2},
+	{"dark_knight": 2, "shade": 2, "warlock": 1},
 	{"warlock": 1, "dark_knight": 2, "gargoyle": 2},
-	{"executioner": 1, "shade": 2, "warlock": 1, "gargoyle": 1},
+	{"executioner": 1, "shade": 3, "warlock": 1, "gargoyle": 1},
 	{"executioner": 1, "dark_knight": 2, "warlock": 2, "shade": 2, "gargoyle": 1},
 	{"dark_lord": 1},
+	{"rift_blade": 3, "rift_spawn": 2},
+	{"rift_blade": 2, "rift_archer": 2, "rift_eye": 1},
+	{"rift_caller": 1, "rift_blade": 2, "rift_eye": 2, "rift_archer": 1},
+	{"rift_brute": 1, "rift_caller": 1, "rift_archer": 2, "rift_eye": 2, "rift_spawn": 2},
+	{"voidwing": 1},
+	{"rift_blade": 3, "rift_brute": 1, "rift_archer": 2},
+	{"rift_bearer": 1, "rift_blade": 2, "rift_caller": 1, "rift_eye": 2},
+	{"rift_brute": 2, "rift_archer": 2, "rift_spawn": 3, "rift_caller": 1},
+	{"rift_bearer": 1, "rift_blade": 2, "rift_caller": 1, "rift_eye": 2, "rift_archer": 1},
+	{"harbinger": 1},
+	# Ветряные холмы
+	{"hollow_farmer": 4, "void_crow": 3, "rift_archer": 1},
+	{"hollow_farmer": 3, "straw_golem": 1, "void_crow": 2, "rift_caller": 1},
+	{"straw_golem": 2, "hollow_farmer": 2, "rift_eye": 2, "void_crow": 2},
+	{"straw_golem": 1, "hollow_farmer": 3, "rift_bearer": 1, "rift_archer": 2, "void_crow": 2},
+	{"void_shepherd": 1},
+	# Дворец Бездны
+	{"void_guard": 2, "void_mage": 2, "rift_blade": 2, "rift_eye": 1},
+	{"void_guard": 2, "void_mage": 1, "rift_brute": 1, "rift_bearer": 1, "rift_spawn": 3},
+	{"abyss_headsman": 1},
+	{"rift_weaver": 1},
+	{"wanderer": 1},
+	# только сложный режим:
+	{"harbinger": 1, "abyss_headsman": 1, "rift_weaver": 1},
+	{"abyss_lord": 1},
+	{"mad_wanderer": 1},
 ]
 
 # На какой волне противник появляется впервые
@@ -986,6 +1218,11 @@ static func create(kind: String, wave: int, pos: Vector2, target: Player, map_w:
 	p.keep_max = t["keep"][1]
 	p.jumpiness = t["jump"]
 	p.melee_dmg = t.get("melee", 0)
+	# ближники налетают и отскакивают (кроме боссов, летунов и пиявки — та присасывается нарочно)
+	if p.melee_dmg > 0 and not t.get("boss", false) and not t.get("flying", false) \
+			and not kind in ["leech", "brute"] and t["keep"][1] <= 260.0:
+		p.skirmish = true
+		p.add_to_group("melee_pack")
 	p.bot_abilities = t["abilities"].duplicate()
 	p.mortar_count = t.get("mortars", 5)
 	p.abilities = ["", "", ""]
@@ -1004,6 +1241,10 @@ static func create(kind: String, wave: int, pos: Vector2, target: Player, map_w:
 	if SUMMONS.has(kind):
 		p.set_meta("summons", SUMMONS[kind])
 	p.set_meta("kind", kind)
+	if t.has("rig"):
+		p.rig_kind = t["rig"]                          # выглядит как другой вид (ворон разлома — как ворон)
+	if t.has("tint"):
+		p.modulate = t["tint"]
 	p.back_mult = t.get("back_mult", 1.0)
 	if t.has("stagger"):
 		p.stagger_max = p.max_hp * float(t["stagger"])
@@ -1025,6 +1266,31 @@ static func create(kind: String, wave: int, pos: Vector2, target: Player, map_w:
 		fb.p = p
 		fb.kind = kind
 		p.add_child(fb)
+	p.ab_tempo = float(t.get("tempo", 1.0))
+	if t.has("dmg_mult"):
+		p.set_meta("bal_dmg", float(t["dmg_mult"]))     # урон этого врага по героям (баланс Арены)
+	if t.get("abyss_brain", false):
+		var ab := AbyssBrain.new()
+		ab.p = p
+		ab.kind = kind
+		p.add_child(ab)
+	if t.get("lord_brain", false):
+		var lb := AbyssLordBrain.new()
+		lb.p = p
+		p.add_child(lb)
+	if t.get("mad_brain", false):
+		var mb := MadWandererBrain.new()
+		mb.p = p
+		p.add_child(mb)
+	if t.get("wanderer_brain", false):
+		var wb := WandererBrain.new()
+		wb.p = p
+		p.add_child(wb)
+	if t.get("rift_brain", false):
+		var rb2 := RiftBrain.new()
+		rb2.p = p
+		rb2.kind = kind
+		p.add_child(rb2)
 	if t.get("fireproof", false):
 		p.set_meta("fireproof", true)               # огненные твари: лава и огонь им не страшны
 	if t.has("chill_shots"):

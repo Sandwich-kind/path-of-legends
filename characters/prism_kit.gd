@@ -57,7 +57,6 @@ func weapon(delta: float, shoot: bool) -> void:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or p._cd[i] > 0.0:
 		return
 	if ulting() and ab != "mirror_wall":
@@ -138,6 +137,8 @@ func _raise_pillar(x: float, ground: float, h: float, life: float, dir: int) -> 
 	var d := Maps.make_destructible(Rect2(x - 20.0, ground - h, 40.0, h), 20.0, CRYSTAL, 40, 30.0)
 	d.mat_kind = "crystal"
 	d.anchored = true
+	if p._skin_fx:
+		p._skin_fx.adopt(d)                          # облик: столб в цветах серии
 	for cx in d.cols:
 		d.anchors.append(Vector2i(cx, d.rows - 1))
 	d.set_meta("prism_pillar", true)
@@ -147,7 +148,7 @@ func _raise_pillar(x: float, ground: float, h: float, life: float, dir: int) -> 
 	for e in _enemies():
 		if absf(e.global_position.x - x) < 20.0 + e.body_size.x / 2 and absf(e.global_position.y - (ground - h / 2)) < h / 2 + e.body_size.y / 2:
 			e.velocity = Vector2(dir * 320.0, -700.0)
-	Fx.sparks(world, Vector2(x, ground), Color(0.7, 0.85, 1.0), 10, 260.0, 3.5, true)
+	Fx.sparks(world, Vector2(x, ground), Skins.col(p, Color(0.7, 0.85, 1.0)), 10, 260.0, 3.5, true)
 	var t := d.create_tween()
 	t.tween_interval(maxf(0.1, life - 0.6))
 	t.tween_property(d, "modulate:a", 0.45, 0.6)
@@ -156,7 +157,7 @@ func _raise_pillar(x: float, ground: float, h: float, life: float, dir: int) -> 
 func _shatter_pillar(d: Destructible) -> void:
 	if not is_instance_valid(d):
 		return
-	Fx.sparks(d.get_parent(), d.global_position, Color(0.75, 0.88, 1.0), 16, 260.0, 3.5)
+	Fx.sparks(d.get_parent(), d.global_position, Skins.col(p, Color(0.75, 0.88, 1.0)), 16, 260.0, 3.5)
 	d.queue_free()
 
 # Где земля под точкой (луч вниз от уровня героя, затем от верха карты)
@@ -207,8 +208,8 @@ func _refract(mega: bool) -> void:
 		var t := l.create_tween()
 		t.tween_property(l, "modulate:a", 0.0, 0.35)
 		t.tween_callback(l.queue_free)
-	Fx.sparks(world, from, Color(0.8, 0.9, 1.0), 10, 220.0, 3.0)
-	Fx.ring(world, p.global_position, 55.0, Color(0.9, 0.95, 1.0, 0.9), 0.3, 4.0)
+	Fx.sparks(world, from, Skins.col(p, Color(0.8, 0.9, 1.0)), 10, 220.0, 3.0)
+	Fx.ring(world, p.global_position, 55.0, Skins.col(p, Color(0.9, 0.95, 1.0, 0.9)), 0.3, 4.0)
 	if mega:
 		p.give_crust(60.0, 6.0, true)          # хрустальная броня
 	elif Balance.arena(p):
@@ -236,7 +237,7 @@ func _make_decoy(at: Vector2) -> Player:
 
 func _tint_decoy(dec: Player) -> void:
 	if is_instance_valid(dec):
-		dec.set_tint(Color(0.75, 0.9, 1.35, 0.8))
+		dec.set_tint(Skins.col(p, Color(0.75, 0.9, 1.35, 0.8)))
 		if dec._rig_root:
 			Shimmer.apply(dec._rig_root, 0.35, 0.7)
 			for c in dec._rig_root.get_children():
@@ -249,7 +250,7 @@ func _decoy_burst(_i: int, dec: Player, mega: bool) -> void:
 	var n := 12 if mega else 9
 	if Balance.arena(p):
 		n += 5                                 # Арена: больше осколков
-	Shards.burst(p.get_parent(), dec.global_position, p.team, p, n, 16 if mega else 12, CRYSTAL)
+	Shards.burst(p.get_parent(), dec.global_position, p.team, p, n, 16 if mega else 12, Skins.col(p, CRYSTAL))
 	dec.visible = false
 
 # ---------- Ульта ----------
@@ -264,7 +265,7 @@ func ult() -> void:
 		_ray.dur = 5.5                         # Арена: луч горит дольше
 	p.get_parent().add_child(_ray)
 	p.move_mult = 0.35
-	Fx.rune_circle(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), 70.0, Color(0.85, 0.8, 1.0, 0.9), 1.1)
+	Fx.rune_circle(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), 70.0, Skins.col(p, Color(0.85, 0.8, 1.0, 0.9)), 1.1)
 
 func ult_ended() -> void:
 	p.move_mult = 1.0

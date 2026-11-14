@@ -614,6 +614,7 @@ func _move_to_citadel() -> void:
 	var xs := [cx - 430.0, cx + 430.0]
 	am.relocate(func(w: Node) -> Dictionary: return FarStages.citadel(w), [p], func():
 		am.place_name = FarStages.CITADEL_NAME
+		Audio.intensity(2)                 # бой продолжается — тема Лорда
 		_cm = null
 		if is_instance_valid(p):
 			p.global_position = Vector2(cx, -500.0)
@@ -660,6 +661,7 @@ func _start_last_form() -> void:
 	_dash_t = 0.0
 	p._forced_time = 0.0
 	p.frozen = true
+	Audio.intensity(3)                 # Воплощение Тьмы — музыка на пределе
 	var av := DarkAvatar.new()
 	av.lord = p
 	av.lord_sky = _sky

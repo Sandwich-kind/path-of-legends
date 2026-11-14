@@ -1,4 +1,5 @@
 extends SceneTree
+# TIMEOUT=3000
 # Проход всей Арены вдвоём: боты убиваются через 2 секунды, герои бессмертны.
 var main
 var f := 0
@@ -6,6 +7,7 @@ var arena: ArenaMode
 var seen_stage := {}
 var seen_kinds := {}
 var age := {}
+var shop_t := 0
 func _initialize() -> void:
 	Save.load_game()
 	Save.reset()
@@ -33,10 +35,18 @@ func _physics_process(_d: float) -> bool:
 			if k == "totem" or not b.invulnerable:
 				b.invulnerable = false
 				b.take_damage(99999)
+	if arena._state == "shop":                 # лавка после каждой десятой волны: постояли — идём дальше
+		shop_t += 1
+		if shop_t > 150:
+			shop_t = 0
+			arena._leave_shop()
+	else:
+		shop_t = 0
 	if f % 600 == 0:
 		print("f=", f, " wave=", arena.wave, " stage=", arena.stage, " alive=", arena._alive.size(), " state=", arena._state, " gold=", Save.gold(), " save=", Save.arena_progress("coop" if true else "solo"))
 	if arena._state == "over" or f > 60 * 60 * 40:
 		print("END wave=", arena.wave, " stages=", seen_stage.keys(), " kinds=", seen_kinds.keys(), " gold=", Save.gold())
-		print("save=", Save.data)
+		var ok: bool = arena._state == "over" and arena.wave >= 100
+		print("%s whole Arena passed in co-op: wave %d, %d stages, %d kinds of enemies" % ["ok  " if ok else "FAIL", arena.wave, seen_stage.size(), seen_kinds.size()])
 		return true
 	return false

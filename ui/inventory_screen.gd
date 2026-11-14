@@ -6,7 +6,7 @@ extends CanvasLayer
 
 signal back_pressed
 
-const TABS := ["Легенды", "Снаряжение", "Трофеи", "Свитки"]
+const TABS := ["Легенды", "Баффы", "Трофеи", "Свитки"]
 const PAGE := Color(0.95, 0.89, 0.74)
 const INK := Color(0.25, 0.16, 0.10)
 
@@ -93,6 +93,57 @@ func _clear(c: Control) -> void:
 	for n in c.get_children():
 		n.queue_free()
 
+# «Баффы»: слева — баффы, которые выпадают в бою (в Дуэли и на Арене), справа —
+# усиления из Магазина Арены (после каждой десятой волны)
+func _buffs_page() -> void:
+	_ink_label(_left, "Баффы в бою", Vector2(20, 14), Vector2(_left.size.x - 40, 44), 30, true)
+	_ink_label(_left, "Выпадают из сундуков и с алтарей. Подобрал тот же бафф ещё раз — он становится МЕГА.",
+			Vector2(24, 60), Vector2(_left.size.x - 48, 50), 15)
+	var y := 116.0
+	for k in Buffs.TYPES:
+		var b: Dictionary = Buffs.TYPES[k]
+		_buff_row(_left, y, b["color"], String(b["letter"]), "%s — %s" % [b["name"], b["desc"]])
+		y += 62.0
+	_ink_label(_right, "Магазин Арены", Vector2(20, 14), Vector2(_right.size.x - 40, 44), 30, true)
+	_ink_label(_right, "После каждой десятой волны — Магазин. Усиления действуют до конца прохождения и складываются. Купил — торговец ставит другое (на прилавке — не больше двух раз). Жизнь — одна за остановку.",
+			Vector2(24, 60), Vector2(_right.size.x - 48, 76), 14)
+	var sc := ScrollContainer.new()
+	sc.position = Vector2(14, 140)
+	sc.size = Vector2(_right.size.x - 28, _right.size.y - 150)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_right.add_child(sc)
+	var list := Control.new()
+	list.custom_minimum_size = Vector2(_right.size.x - 48, (RunShop.POOL.size() + 1) * 50 + 10)
+	sc.add_child(list)
+	var yy := 4.0
+	for id in RunShop.POOL:
+		var r: Dictionary = RunShop.POOL[id]
+		_buff_row(list, yy, r["col"], String(r["letter"]), "%s — %s (от %d монет)" % [r["name"], r["short"], r["price"]], 15)
+		yy += 50.0
+	_buff_row(list, yy, Color(0.95, 0.25, 0.32), "♥", "Дополнительная жизнь (от %d монет)" % RunShop.LIFE_PRICE, 15, true)
+
+func _buff_row(parent: Control, y: float, c: Color, letter: String, text: String, font := 16, heart := false) -> void:
+	var holder := Node2D.new()
+	holder.position = Vector2(42, y + 20)
+	parent.add_child(holder)
+	if heart:
+		holder.add_child(RunShop.heart(14.0, c))
+	else:
+		var orb := Polygon2D.new()
+		orb.polygon = Util.circle(17.0, 16)
+		orb.color = c
+		holder.add_child(orb)
+		var l := Label.new()
+		l.text = letter
+		l.position = Vector2(-17, -17)
+		l.size = Vector2(34, 34)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", 18)
+		l.add_theme_color_override("font_color", Color(0.12, 0.08, 0.06))
+		holder.add_child(l)
+	_ink_label(parent, text, Vector2(70, y), Vector2(maxf(parent.size.x, parent.custom_minimum_size.x) - 90.0, 44), font)
+
 func _ink_label(parent: Control, text: String, pos: Vector2, size: Vector2, font: int,
 		center := false) -> Label:
 	var l := Label.new()
@@ -117,6 +168,9 @@ func _refresh() -> void:
 		_tab_btns[i].modulate = Color(1.25, 1.15, 0.8) if i == _tab else Color(0.8, 0.8, 0.8)
 	_clear(_left)
 	_clear(_right)
+	if _tab == 1:
+		_buffs_page()
+		return
 	if _tab != 0:
 		_ink_label(_left, TABS[_tab], Vector2(20, 20), Vector2(_left.size.x - 40, 50), 32, true)
 		_ink_label(_left, "Здесь пока пусто.\nСкоро тут что-то появится.", Vector2(30, 120),
@@ -163,12 +217,27 @@ func _refresh() -> void:
 				Vector2(170, 80), Vector2(w - 190, 120), 18)
 		return
 	HeroFigure.draw(_right, Vector2(90, 200), 2.4, _hero)
+	if not Skins.for_hero(_hero).is_empty():
+		# облики этой легенды: сколько есть и каталог (смотреть и выбирать)
+		var all := Skins.for_hero(_hero)
+		var got := all.filter(func(s): return Skins.owned(s["id"])).size()
+		var sb := Button.new()
+		sb.text = "Облики %d/%d" % [got, all.size()]
+		sb.position = Vector2(14, 206)
+		sb.size = Vector2(150, 40)
+		sb.add_theme_font_size_override("font_size", 16)
+		sb.pressed.connect(func():
+			var cat := SkinCatalog.new()
+			cat.hero = _hero
+			cat.closed.connect(_refresh)
+			add_child(cat))
+		_right.add_child(sb)
 	_ink_label(_right, h["name"], Vector2(170, 20), Vector2(w - 190, 44), 30)
-	_ink_label(_right, h["role"], Vector2(170, 62), Vector2(w - 190, 30), 20)
+	_ink_label(_right, h["role"] + ("   ·   Чемпион сложной Арены" if _hero in Save.hard_heroes() else ""), Vector2(170, 62), Vector2(w - 190, 30), 20)
 	_ink_label(_right, "Здоровье: %d     Скорость: %d" % [h["hp"], int(h["speed"])],
 			Vector2(170, 98), Vector2(w - 190, 30), 18)
 	var wl := _ink_label(_right, h["weapon"], Vector2(170, 130), Vector2(w - 190, 70), 17)
-	var y := maxf(215.0, 130.0 + wl.get_line_count() * wl.get_line_height() + 12.0)
+	var y := maxf(255.0, 130.0 + wl.get_line_count() * wl.get_line_height() + 12.0)
 	# способности — в прокручиваемом списке (описания бывают длинными)
 	var sc := ScrollContainer.new()
 	sc.position = Vector2(14, y)

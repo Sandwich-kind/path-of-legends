@@ -14,7 +14,7 @@ func _initialize() -> void:
 func press(a: String) -> void:
 	Input.action_press(a)
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png(shots + "asn_%s.png" % n)
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "asn_%s.png" % n)
 func place(dx: float) -> void:
 	p1.global_position.x = 1000
 	p2.global_position = Vector2(1000 + dx, p1.global_position.y)

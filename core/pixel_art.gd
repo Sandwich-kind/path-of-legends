@@ -14,18 +14,23 @@ static func make_sprite(img: Image, scale: float) -> Sprite2D:
 	return s
 
 # ---------- Заставка главного меню: поле, река, лес, гора ----------
-static func title_landscape() -> Image:
+# with_sky = false — без неба, солнца и птиц (живая заставка рисует их сама и двигает)
+static func title_landscape(with_sky := true) -> Image:
 	var w := 320
 	var h := 180
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
 	# небо полосами и солнце
-	_vgrad(img, 0, w, 0, 125, Color(0.30, 0.50, 0.86), Color(0.98, 0.80, 0.62), 14)
-	_halo(img, 250, 50, 40, Color(1.0, 0.9, 0.7, 0.5))
-	_circle(img, 250, 50, 19, Color(1.0, 0.88, 0.66))
-	_circle(img, 250, 50, 13, Color(1.0, 0.96, 0.78))
-	_birds(img, 7, 30, 70, rng, Color(0.25, 0.25, 0.35))
+	if with_sky:
+		_vgrad(img, 0, w, 0, 125, Color(0.30, 0.50, 0.86), Color(0.98, 0.80, 0.62), 14)
+		_halo(img, 250, 50, 40, Color(1.0, 0.9, 0.7, 0.5))
+		_circle(img, 250, 50, 19, Color(1.0, 0.88, 0.66))
+		_circle(img, 250, 50, 13, Color(1.0, 0.96, 0.78))
+		_birds(img, 7, 30, 70, rng, Color(0.25, 0.25, 0.35))
+	else:
+		for i in 14:
+			rng.randi_range(0, 1)             # птицы съедают 14 случайных чисел — дальше та же картинка
 	# далёкие горы с большой снежной вершиной
 	var far := _ridge(w, 120.0, [[96, 92, 72], [160, 58, 48], [28, 46, 44], [232, 54, 58], [298, 40, 40]], rng, 2.0)
 	_mountains(img, far, 125, Color(0.58, 0.56, 0.72), Color(0.43, 0.42, 0.60), 54.0, rng)

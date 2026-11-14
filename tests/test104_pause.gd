@@ -71,7 +71,7 @@ func _process(_d: float) -> bool:
 			var pz = pause_node()
 			pz._confirm_exit()
 		430:
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/pause_exit.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/pause_exit.png")
 			pause_node()._exit()
 		440:
 			print("exit: mode=", main.mode, " paused=", paused)

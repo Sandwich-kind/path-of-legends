@@ -17,9 +17,13 @@ const DUEL_MAPS := [
 	{"id": "test_field", "name": "TEST_FIELD",
 		"desc": "Маленькая арена на один экран: платформы, колонны и ящики."},
 	{"id": "two_houses", "name": "Два дома",
-		"desc": "Поле под открытым небом, у каждого свой прочный дом, на фоне деревья."},
+		"desc": "Поле под открытым небом, у каждого свой прочный дом, на фоне деревья. Разойдётесь далеко — экран делится надвое."},
 	{"id": "mountain", "name": "Гора",
 		"desc": "Огромная гора из очень прочного камня: проходы, пещера, вершина. Далеко друг от друга — экран делится надвое."},
+	{"id": "castles", "name": "Замки",
+		"desc": "Синий и красный замки: башни с пушками, залы со знамёнами, лестницы. Посередине — ров и деревянный мост. «Мгновенная смерть»: осада — пушки бьют по чужакам, мост горит."},
+	{"id": "train", "name": "Экспресс",
+		"desc": "Бой на мчащемся поезде: паровозы, вагоны, платформы с грузом, крыши и люки. Упал на шпалы — подбросит обратно, больно. «Мгновенная смерть»: тоннели — кто на крыше, того сносит сводом."},
 	{"id": "test_buffs", "name": "TEST_BUFFS",
 		"desc": "Длинная дорога. На каждой площадке — свой бафф и свой МЕГА-бафф, появляются каждые 5 секунд."},
 	# Скрытые карты: открываются, когда этап Арены пройден целиком
@@ -57,6 +61,14 @@ const DUEL_MAPS := [
 		"desc": "Зал Тёмного лорда: люстры падают на головы, из решёток бьёт пламя бездны. Открыт за волны 76–80."},
 	{"id": "arena_citadel", "name": "Цитадель во тьме", "stage": 16,
 		"desc": "Вершина цитадели, где бился Тёмный Лорд: по краям — стены мрака. В «Мгновенную смерть» из тьмы встаёт Воплощение Тьмы — неуязвимое, бьёт по обоим. Открыта за победу над Тёмным Лордом."},
+	{"id": "arena_sky", "name": "Летающие острова", "stage": 17,
+		"desc": "Три острова в небе: из пропастей бьют восходящие потоки, над ними плавают плиты. В «Мгновенную смерть» края островов рушатся, а потоки гаснут. Открыты за волны 81–85."},
+	{"id": "arena_burning", "name": "Деревня в огне", "stage": 18,
+		"desc": "Окраина горящей деревни: с неба падают пылающие балки. В «Мгновенную смерть» с обоих краёв надвигается огненный вал. Открыта за волны 86–90."},
+	{"id": "arena_hills", "name": "Ветряные холмы", "stage": 19,
+		"desc": "Поля и мельницы, куда уже просочилась бездна: в пузырях лёгкости прыгаешь выше, лиловые проплешины жгут. Открыты за волны 91–95."},
+	{"id": "arena_palace", "name": "Дворец Бездны", "stage": 20,
+		"desc": "Двор тёмного дворца под лиловым небом: от ворот катятся волны бездны — перепрыгивай. Открыт за победу над Странником."},
 ]
 
 # Какие карты сейчас видны в свитке Дуэли (скрытые — только открытые на Арене)
@@ -76,6 +88,10 @@ static func build(world: Node, id: String) -> Dictionary:
 			return build_two_houses(world)
 		"mountain":
 			return build_mountain(world)
+		"castles":
+			return Castles.build(world)
+		"train":
+			return Train.build(world)
 		"test_buffs":
 			return build_test_buffs(world)
 		"arena_forest":
@@ -112,6 +128,14 @@ static func build(world: Node, id: String) -> Dictionary:
 			return build_arena(world, 15)
 		"arena_citadel":
 			return build_citadel_dark(world)
+		"arena_sky":
+			return build_arena(world, 17)
+		"arena_burning":
+			return build_arena(world, 18)
+		"arena_hills":
+			return build_arena(world, 19)
+		"arena_palace":
+			return build_arena(world, 20)
 		_:
 			return build_test_field(world)
 
@@ -290,13 +314,13 @@ static func _mount_height(x: float) -> float:
 
 # Пустоты внутри горы: тоннели, шахты, пещера
 static func _mount_hollow(x: float, y: float, g: float) -> bool:
-	if y > g - 170.0 and x > 1250.0 and x < 4750.0:                 # нижний тоннель
+	if y > g - 170.0 and x > 1520.0 and x < 4480.0:                 # нижний тоннель (первые уступы снаружи целы)
 		return true
-	if y > g - 770.0 and y < g - 600.0 and x > 1900.0 and x < 4100.0:   # верхний тоннель
+	if y > g - 770.0 and y < g - 600.0 and x > 2180.0 and x < 3820.0:   # верхний тоннель (внутри горы — уступы снаружи целы)
 		return true
 	if y > g - 1260.0 and y < g - 940.0 and x > 2520.0 and x < 3480.0:  # пещера
 		return true
-	for sx in [2060.0, 3940.0]:                                       # шахты вниз
+	for sx in [2250.0, 3750.0]:                                       # шахты вниз
 		if absf(x - sx) < 70.0 and y > g - 600.0 and y < g - 170.0:
 			return true
 	if absf(x - MOUNT_CX) < 70.0 and y > g - 940.0 and y < g - 770.0:  # шахта в пещеру
@@ -358,10 +382,12 @@ static func build_mountain(world: Node) -> Dictionary:
 			d.position = Vector2((cx0 + chunk / 2.0) * MCELL, (cy0 + chunk / 2.0) * MCELL)
 			world.add_child(d)
 	# деревянные площадки в шахтах (лестницы) и в пещере
-	for sx in [2060.0, 3940.0]:
-		for k in 3:
-			add_platform(world, Rect2(sx - 60, g - 290.0 - k * 120.0, 120, 20), true)
-	add_platform(world, Rect2(MOUNT_CX - 60, g - 890.0, 120, 20), true)
+	# ступени через 120 — допрыгнуть можно без баффов (прыжок ~155)
+	for sx in [2250.0, 3750.0]:
+		for k in 4:
+			add_platform(world, Rect2(sx - 60, g - 140.0 - k * 120.0, 120, 20), true)
+	add_platform(world, Rect2(MOUNT_CX - 60, g - 720.0, 120, 20), true)
+	add_platform(world, Rect2(MOUNT_CX - 60, g - 840.0, 120, 20), true)
 	add_platform(world, Rect2(2620, g - 1070, 200, 20), true)
 	add_platform(world, Rect2(3180, g - 1070, 200, 20), true)
 	add_platform(world, Rect2(2900, g - 1180, 200, 20), true)
@@ -371,7 +397,7 @@ static func build_mountain(world: Node) -> Dictionary:
 	add_crate(world, Vector2(2300, g - 631))
 	add_crate(world, Vector2(3700, g - 631))
 	if not preview_mode:
-		for p in [Vector2(1500, g - 120), Vector2(2900, g - 120), Vector2(4500, g - 120),
+		for p in [Vector2(1640, g - 120), Vector2(2900, g - 120), Vector2(4360, g - 120),
 				Vector2(2300, g - 720), Vector2(3700, g - 720), Vector2(2700, g - 1200), Vector2(3300, g - 1200)]:
 			var t := Torch.new()
 			t.position = p
@@ -395,7 +421,7 @@ static func build_mountain(world: Node) -> Dictionary:
 	for x in [500.0, 850.0, w - 500.0, w - 850.0]:
 		add_tree(world, x, g)
 	return {"size": Vector2(w, MOUNT_H), "p1": Vector2(200, g - 37), "p2": Vector2(w - 200, g - 37),
-			"follow": true, "open_top": true, "split": true, "min_zoom": 0.45,
+			"follow": true, "open_top": true, "split": true,
 			"top_y": -100.0, "sky": [Vector2(700, g - 1700), Vector2(w - 700, g - 1700)]}
 
 # ---------- TEST_BUFFS: дорога с площадками баффов ----------
@@ -453,6 +479,14 @@ static func build_citadel_dark(world: Node) -> Dictionary:
 	info["x_lo"] = DarkAvatar.INNER_L
 	info["x_hi"] = DarkAvatar.INNER_R
 	info["cam_rect"] = Rect2(DarkAvatar.INNER_L - 70.0, 110.0, DarkAvatar.INNER_R - DarkAvatar.INNER_L + 140.0, f + 60.0 - 110.0)
+	# алтари баффов Арены остались за стенами мрака — в Дуэли один алтарь над серединой
+	for n in world.get_children():
+		if n is PickupSpawner and (n.global_position.x < DarkAvatar.INNER_L or n.global_position.x > DarkAvatar.INNER_R):
+			n.queue_free()
+	var mid_x := (DarkAvatar.INNER_L + DarkAvatar.INNER_R) / 2.0
+	info["spawners"] = (info.get("spawners", []) as Array).filter(func(s): return is_instance_valid(s) \
+			and s.global_position.x >= DarkAvatar.INNER_L and s.global_position.x <= DarkAvatar.INNER_R)
+	info["spawners"].append(Colosseum._ledge(world, mid_x, 140.0, 170.0))   # ниже Воплощения Тьмы
 	return info
 
 static func build_arena(world: Node, stage: int) -> Dictionary:
@@ -470,6 +504,8 @@ static func build_arena(world: Node, stage: int) -> Dictionary:
 		9: info = Colosseum.build(world, 2, true)
 		10: info = EerieWoods.build(world, false)
 		11: info = EerieWoods.build(world, true)
+		19: info = AbyssStages.hills(world, 2)
+		20: info = AbyssStages.palace(world, 1)
 		_: info = FarStages.build(world, stage)
 	var f: float = info["floor"]
 	info["p1"] = Vector2(420, f - 32)

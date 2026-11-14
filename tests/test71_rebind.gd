@@ -48,7 +48,7 @@ func _process(_d: float) -> bool:
 			print("p1_jump buttons in InputMap: ", on)
 			cs._start_wait("a1", null)
 		70:
-			if shots != "": root.get_viewport().get_texture().get_image().save_png(shots + "/rebind.png")
+			if (shots != "") and DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "/rebind.png")
 		400:
 			print("after timeout: a1=", Pad.binds("fight")["a1"], " waiting=", cs._wait_fn, "  msg: ", cs._msg)
 			print("story untouched: jump=", Pad.binds("story")["jump"])
@@ -57,7 +57,7 @@ func _process(_d: float) -> bool:
 			btn(JOY_BUTTON_B, false)
 		404:
 			print("B leaves edit list: editing=", cs._editing, " screen alive=", is_instance_valid(cs))
-			if shots != "": root.get_viewport().get_texture().get_image().save_png(shots + "/rebind_diagram.png")
+			if (shots != "") and DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "/rebind_diagram.png")
 			Pad.reset("fight")
 			return true
 	return false

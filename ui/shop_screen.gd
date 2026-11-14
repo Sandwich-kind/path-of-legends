@@ -59,10 +59,16 @@ func _ready() -> void:
 	sign.add_theme_constant_override("outline_size", 0)
 	add_child(sign)
 	# вкладки — деревянные таблички на стойке
+	# вкладка «МЕГА» появляется только после первого полного прохождения Арены
+	var mega_open := not Save.arena_heroes().is_empty() or _any_mega()
+	var slot := 0
 	for i in TABS.size():
 		var b := Button.new()
 		b.text = TABS[i]
-		b.position = _off + Vector2(38 + i * 62, 130) * _k
+		b.visible = i != 1 or mega_open
+		b.position = _off + Vector2((38 + 31 if not mega_open else 38) + slot * 62, 130) * _k
+		if b.visible:
+			slot += 1
 		b.size = Vector2(56, 22) * _k
 		b.add_theme_font_size_override("font_size", int(6.5 * _k))
 		for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
@@ -121,6 +127,12 @@ func _refresh_tabs() -> void:
 			b.remove_meta("pad_default")
 
 # ---------- Смена вкладки ----------
+func _any_mega() -> bool:
+	for ch in Characters.LIST:
+		if Save.has_mega(ch["name"]):
+			return true
+	return false
+
 func _select(i: int) -> void:
 	if _busy or i == _tab:
 		return
@@ -206,9 +218,10 @@ func _goods(tab: int) -> Array:
 					res.append({"kind": "hero", "idx": i, "price": Characters.LIST[i]["price"]})
 			for i in 7:
 				res.append(_mystery_box())
-		1:   # МЕГА: по усилению на каждую легенду
-			for i in Characters.LIST.size():
-				res.append({"kind": "mega", "idx": i, "price": Characters.MEGA_PRICE})
+		1:   # МЕГА: только для легенд, с которыми пройдена Арена (и уже купленные раньше)
+			for i in Characters.display_order():
+				if i in Save.arena_heroes() or Save.has_mega(Characters.LIST[i]["name"]):
+					res.append({"kind": "mega", "idx": i, "price": Characters.MEGA_PRICE})
 		2:   # предметы: зелья, бомбы, свитки, щиты
 			var potions := [Color(0.9, 0.2, 0.25), Color(0.25, 0.5, 1.0), Color(0.3, 0.85, 0.35), Color(0.9, 0.75, 0.2)]
 			for c in potions:
@@ -218,9 +231,10 @@ func _goods(tab: int) -> Array:
 			res.append(_scroll())
 			res.append(_scroll())
 			res.append(_small_shield())
-		3:   # сундуки
-			for c in [Color(0.55, 0.36, 0.18), Color(0.6, 0.62, 0.68), Color(0.9, 0.72, 0.25)]:
-				res.append(_chest(c))
+		3:   # сундуки: тематические — с обликами легенд (без повторов)
+			res.append({"kind": "chest", "series": "fire", "idx": 0, "price": int(Skins.SERIES["fire"]["price"])})
+			res.append({"kind": "chest", "series": "ice", "idx": 0, "price": int(Skins.SERIES["ice"]["price"])})
+			for c in [Color(0.55, 0.36, 0.18), Color(0.9, 0.72, 0.25)]:
 				res.append(_chest(c))
 	return res
 
@@ -308,6 +322,38 @@ func _chest(c: Color) -> Image:
 func _offer_node(o: Dictionary) -> Node2D:
 	var ch: Dictionary = Characters.LIST[o["idx"]]
 	var root := Node2D.new()
+	if o["kind"] == "chest":
+		var ice: bool = o.get("series", "fire") == "ice"
+		var cimg := _chest(Color(0.85, 0.32, 0.10) if not ice else Color(0.32, 0.55, 0.80))
+		var cs := PixelArt.make_sprite(cimg, 1.0)
+		cs.centered = true
+		cs.offset = Vector2(0, -cimg.get_height() / 2.0)
+		root.add_child(cs)
+		if not ice:
+			for k in 3:                                   # языки пламени над крышкой
+				var fl := Polygon2D.new()
+				fl.polygon = PackedVector2Array([Vector2(-2, 0), Vector2(0, -6 - k), Vector2(2, 0)])
+				fl.color = Color(1.0, 0.75, 0.2) if k != 1 else Color(1.0, 0.45, 0.1)
+				fl.position = Vector2(-5 + k * 5, -cimg.get_height() - 1)
+				root.add_child(fl)
+		else:
+			var snow := Polygon2D.new()                   # снег на крышке
+			snow.polygon = PackedVector2Array([Vector2(-8, -12), Vector2(-6, -14), Vector2(-2, -13.5), Vector2(1, -15), Vector2(5, -13.5), Vector2(8, -14), Vector2(8, -12)])
+			snow.color = Color(0.96, 0.99, 1.0)
+			root.add_child(snow)
+			for k in 4:                                   # сосульки по краю крышки
+				var ic := Polygon2D.new()
+				ic.polygon = PackedVector2Array([Vector2(-1, 0), Vector2(0, 2.5 + (k % 2) * 1.5), Vector2(1, 0)])
+				ic.color = Color(0.80, 0.95, 1.0)
+				ic.position = Vector2(-6 + k * 4, -7)
+				root.add_child(ic)
+			var fl2 := Polygon2D.new()                    # снежинка-искра над сундуком
+			fl2.polygon = PackedVector2Array([Vector2(0, -3), Vector2(0.6, -0.6), Vector2(3, 0), Vector2(0.6, 0.6), Vector2(0, 3), Vector2(-0.6, 0.6), Vector2(-3, 0), Vector2(-0.6, -0.6)])
+			fl2.color = Color(0.85, 0.97, 1.0)
+			fl2.position = Vector2(0, -cimg.get_height() - 5)
+			root.add_child(fl2)
+			fl2.create_tween().set_loops().tween_property(fl2, "rotation", TAU, 3.0).from(0.0)
+		return root
 	if o["kind"] == "hero":
 		var stand := Polygon2D.new()
 		stand.polygon = PackedVector2Array([Vector2(-8, -2), Vector2(8, -2), Vector2(8, 0), Vector2(-8, 0)])
@@ -336,6 +382,8 @@ func _offer_node(o: Dictionary) -> Node2D:
 	return root
 
 func _owned(o: Dictionary) -> bool:
+	if o["kind"] == "chest":
+		return Skins.chest_left(o.get("series", "fire")).is_empty()
 	var name: String = Characters.LIST[o["idx"]]["name"]
 	return Save.owns_hero(name) if o["kind"] == "hero" else Save.has_mega(name)
 
@@ -408,6 +456,9 @@ func _open_offer(j: int) -> void:
 	_popup.add_child(card)
 	var mega: bool = o["kind"] == "mega"
 	var ink := Color(0.25, 0.14, 0.06)
+	if o["kind"] == "chest":
+		_chest_card(card, o, ink)
+		return
 	var title: String = ("МЕГА: " if mega else "") + ch["name"]
 	_card_label(card, title, Vector2(250, 22), Vector2(490, 50), 34, ink)
 	var text := ""
@@ -447,6 +498,287 @@ func _open_offer(j: int) -> void:
 	# геймпад: сразу на «Купить» (или на «Закрыть», если купить нельзя)
 	var first: Button = close if buy.disabled else buy
 	first.grab_focus.call_deferred()
+
+# Сундук серии (огненный, ледяной): что внутри и что уже собрано
+func _chest_card(card: Panel, o: Dictionary, ink: Color) -> void:
+	var ser: String = o.get("series", "fire")
+	var ice := ser == "ice"
+	_card_label(card, "Ледяной сундук" if ice else "Огненный сундук", Vector2(40, 18), Vector2(680, 50), 34, ink)
+	_card_label(card, "Внутри — случайный облик %s серии, которого у тебя ещё нет. Облик — другая модель легенды и %s вид её способностей; механика та же." %
+			(["ледяной", "ледяной"] if ice else ["огненной", "огненный"]), Vector2(40, 66), Vector2(680, 60), 17, ink)
+	var ids: Array = Skins.chest_series(ser).keys()
+	var half := ceili(ids.size() / 2.0)
+	for c in 2:                                    # список — в два столбца, чтобы влез
+		var lines := ""
+		for j in range(c * half, mini(ids.size(), (c + 1) * half)):
+			var id: String = ids[j]
+			var hi := _kit_index(Skins.chest_series(ser)[id][0])
+			lines += "• %s — %s%s\n" % [Skins.chest_series(ser)[id][1], String(Characters.LIST[hi]["name"]).capitalize(), " (есть)" if Skins.owned(id) else ""]
+		_card_label(card, lines, Vector2(40 + c * 345, 126), Vector2(340, 240), 14, ink)
+	var buy := MainMenu.make_button(card, "", Vector2(250, 370), Vector2(300, 74), 28)
+	if Skins.chest_left(ser).is_empty():
+		buy.text = "Всё собрано"
+		buy.disabled = true
+	elif Save.gold() < o["price"]:
+		buy.text = "Нужно %d G" % o["price"]
+		buy.disabled = true
+	else:
+		buy.text = "Открыть за %d G" % o["price"]
+		buy.pressed.connect(_open_chest.bind(o))
+	var close := MainMenu.make_button(card, "Закрыть", Vector2(570, 370), Vector2(160, 74), 24)
+	close.pressed.connect(_close_offer)
+	(close if buy.disabled else buy).grab_focus.call_deferred()
+
+func _kit_index(kit: String) -> int:
+	for i in Characters.LIST.size():
+		if Characters.LIST[i].get("kit", "") == kit:
+			return i
+	return 0
+
+# ---------- Открытие сундука: лента обликов, как кейс ----------
+# По ленте в случайном порядке стоят облики серии, которых у игрока ещё нет (выпавшие на
+# ленту больше не попадают). Лента разгоняется и плавно тормозит; облик, остановившийся
+# под чертой посередине, — твой. «Пропустить» — сразу к концу.
+const ROLL_CARDS := 48                 # сколько карточек на ленте
+const ROLL_WIN := 40                   # на каком месте лежит выигрыш
+const ROLL_CW := 150.0                 # ширина карточки
+const ROLL_STEP := 162.0               # шаг ленты (карточка + зазор)
+const ROLL_TIME := 6.0
+
+var roll_ids: Array = []               # что лежит на ленте (для проверок)
+var roll_win := ""
+var _roll_strip: Control
+var _roll_tw: Tween
+var _roll_win_card: Control
+var _roll_last := -1
+var _roll_cx := 0.0
+var _roll_done := false
+var _roll_stop := 0.0
+
+func _open_chest(o: Dictionary) -> void:
+	var ser: String = o.get("series", "fire")
+	var pool := Skins.chest_left(ser)
+	if Save.gold() < o["price"] or pool.is_empty():
+		return
+	Save.data["gold"] = Save.gold() - int(o["price"])
+	var id := Skins.open_chest(ser)                    # облик выдаётся сразу (и сохраняется)
+	_close_offer(false)
+	if _coins:
+		_coins.refresh()
+	roll_win = id
+	var ice := ser == "ice"
+	var vs := Config.screen(self)
+	_popup = Control.new()
+	_popup.size = vs
+	_popup.add_to_group("pad_scope")
+	add_child(_popup)
+	var dim := ColorRect.new()
+	dim.size = vs
+	dim.color = Color(0.02, 0.03, 0.06, 0.88)
+	_popup.add_child(dim)
+	var title := Label.new()
+	title.text = "Ледяной сундук" if ice else "Огненный сундук"
+	title.size = Vector2(vs.x, 60)
+	title.position = Vector2(0, vs.y * 0.08)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Color(0.70, 0.92, 1.0) if ice else Color(1.0, 0.75, 0.3))
+	title.add_theme_constant_override("outline_size", 8)
+	title.add_theme_color_override("font_outline_color", Color(0.04, 0.10, 0.22) if ice else Color(0.25, 0.08, 0.02))
+	_popup.add_child(title)
+	# лента: случайные облики из тех, которых не было; выигрыш — на месте ROLL_WIN
+	roll_ids.clear()
+	for k in ROLL_CARDS:
+		roll_ids.append(pool[randi() % pool.size()])
+	roll_ids[ROLL_WIN] = id
+	var previews := {}
+	for pid in pool:
+		previews[pid] = _skin_preview(pid)
+	var win := Panel.new()                                # окно ленты
+	win.size = Vector2(vs.x - 60.0, 232)
+	win.position = Vector2(30, vs.y * 0.5 - 116)
+	win.clip_contents = true
+	var wst := StyleBoxFlat.new()
+	wst.bg_color = Color(0.07, 0.07, 0.10)
+	wst.border_color = Color(0.30, 0.30, 0.36)
+	wst.set_border_width_all(3)
+	wst.set_corner_radius_all(10)
+	win.add_theme_stylebox_override("panel", wst)
+	_popup.add_child(win)
+	_roll_strip = Control.new()
+	_roll_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	win.add_child(_roll_strip)
+	for k in ROLL_CARDS:
+		var c := _roll_card(roll_ids[k], previews[roll_ids[k]])
+		c.position = Vector2(k * ROLL_STEP, 12)
+		_roll_strip.add_child(c)
+		if k == ROLL_WIN:
+			_roll_win_card = c
+	_roll_cx = win.size.x / 2
+	var line := ColorRect.new()                           # черта посередине
+	line.size = Vector2(4, win.size.y + 24)
+	line.position = Vector2(win.position.x + _roll_cx - 2, win.position.y - 12)
+	line.color = Color(1.0, 0.82, 0.30)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_popup.add_child(line)
+	for s2 in [-1.0, 1.0]:
+		var tri := Polygon2D.new()
+		var y := win.position.y - 14.0 if s2 < 0 else win.position.y + win.size.y + 14.0
+		tri.polygon = PackedVector2Array([Vector2(-10, 0), Vector2(10, 0), Vector2(0, -s2 * 14.0)])
+		tri.position = Vector2(win.position.x + _roll_cx, y)
+		tri.color = Color(1.0, 0.82, 0.30)
+		_popup.add_child(tri)
+	# где остановиться: черта попадает в случайное место выигрышной карточки
+	var stop_x := _roll_cx - (ROLL_WIN * ROLL_STEP + ROLL_CW * randf_range(0.12, 0.88))
+	_roll_stop = stop_x
+	_roll_strip.position.x = _roll_cx - ROLL_STEP * 2.5
+	_roll_last = -1
+	_roll_done = false
+	_roll_tw = _roll_strip.create_tween()
+	_roll_tw.tween_property(_roll_strip, "position:x", stop_x, ROLL_TIME).set_trans(Tween.TRANS_QUINT).set_ease(Tween.EASE_OUT)
+	_roll_tw.tween_callback(_roll_finish)
+	var skip := MainMenu.make_button(_popup, "Пропустить", Vector2(vs.x / 2 - 120, win.position.y + win.size.y + 40), Vector2(240, 64), 24)
+	skip.name = "Skip"
+	skip.pressed.connect(_roll_skip)
+	skip.grab_focus.call_deferred()
+	Audio.sfx("buff")
+
+# Живой снимок облика для карточек ленты (одна картинка на облик)
+func _skin_preview(id: String) -> Texture2D:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(120, 150)
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_popup.add_child(vp)
+	var hi := _kit_index(String(Skins.info(id).get("kit", "")))
+	var photo: bool = (BotRig.SPECS.get(Characters.LIST[hi].get("rig", ""), {}) as Dictionary).get("photo", false)
+	HeroFigure.draw(vp, Vector2(60, 146), 1.6 if photo else 2.1, hi, Color(0, 0, 0, 0), 1, false, id)   # у фото-легенд голова крупнее
+	return vp.get_texture()
+
+func _roll_card(id: String, tex: Texture2D) -> Control:
+	var info := Skins.info(id)
+	var sc: Color = Skins.SERIES[info.get("series", "fire")]["color"]
+	var c := Panel.new()
+	c.size = Vector2(ROLL_CW, 212)
+	c.pivot_offset = c.size / 2
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.14, 0.13, 0.18)
+	st.border_color = sc.darkened(0.35)
+	st.set_border_width_all(2)
+	st.border_width_bottom = 6
+	st.set_corner_radius_all(6)
+	c.add_theme_stylebox_override("panel", st)
+	var glow := ColorRect.new()                           # подсветка снизу в цвете серии
+	glow.color = Color(sc, 0.16)
+	glow.size = Vector2(ROLL_CW - 4, 70)
+	glow.position = Vector2(2, 92)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(glow)
+	var pic := TextureRect.new()
+	pic.texture = tex
+	pic.size = Vector2(120, 150)
+	pic.position = Vector2((ROLL_CW - 120) / 2, 0)
+	pic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(pic)
+	var nm := Label.new()
+	nm.text = String(info.get("name", ""))
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nm.size = Vector2(ROLL_CW - 8, 36)
+	nm.position = Vector2(4, 143)
+	nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nm.add_theme_font_size_override("font_size", 13)
+	nm.add_theme_color_override("font_color", Color(1, 0.97, 0.90))
+	c.add_child(nm)
+	var hn := Label.new()
+	hn.text = String(Characters.LIST[_kit_index(String(info.get("kit", "")))]["name"]).capitalize()
+	hn.size = Vector2(ROLL_CW - 8, 18)
+	hn.position = Vector2(4, 188)
+	hn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hn.add_theme_font_size_override("font_size", 11)
+	hn.add_theme_color_override("font_color", sc.lightened(0.2))
+	c.add_child(hn)
+	return c
+
+func _process(_delta: float) -> void:
+	if _roll_strip == null or not is_instance_valid(_roll_strip) or _roll_done:
+		return
+	# щелчок каждый раз, когда под чертой проходит новая карточка
+	var k := int(floor((_roll_cx - _roll_strip.position.x) / ROLL_STEP))
+	if k != _roll_last:
+		if _roll_last >= 0:
+			Audio.sfx("click", Vector2.INF, 0.0, 0.15)
+		_roll_last = k
+
+func _roll_skip() -> void:
+	if _roll_done or _roll_strip == null or not is_instance_valid(_roll_strip):
+		return
+	if _roll_tw and _roll_tw.is_valid():
+		_roll_tw.kill()
+	_roll_strip.position.x = _roll_stop                    # лента сразу доезжает до конца
+	_roll_finish()
+
+func _roll_finish() -> void:
+	if _roll_done:
+		return
+	_roll_done = true
+	if is_instance_valid(_roll_win_card):
+		var tw := _roll_win_card.create_tween()
+		tw.tween_property(_roll_win_card, "scale", Vector2(1.12, 1.12), 0.15).set_trans(Tween.TRANS_BACK)
+		tw.tween_property(_roll_win_card, "scale", Vector2(1.05, 1.05), 0.2)
+		var hl := ColorRect.new()
+		hl.color = Color(1.0, 0.95, 0.70, 0.35)
+		hl.size = _roll_win_card.size
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_roll_win_card.add_child(hl)
+		hl.create_tween().tween_property(hl, "modulate:a", 0.0, 0.6)
+	Audio.stinger("unlock")
+	var sk: Variant = _popup.get_node_or_null("Skip") if _popup else null
+	if sk is Button:
+		(sk as Button).visible = false
+	var me: WeakRef = weakref(self)
+	get_tree().create_timer(0.9).timeout.connect(func():
+		var s3: Variant = me.get_ref()
+		if s3 and is_instance_valid(s3._popup):
+			s3._show_won(s3.roll_win))
+
+# Итог: облик крупно, его имя и «Отлично!»
+func _show_won(id: String) -> void:
+	var info := Skins.info(id)
+	var ice: bool = info.get("series", "") == "ice"
+	for c in _popup.get_children():
+		if not (c is SubViewport):
+			c.queue_free()
+	_roll_strip = null
+	var vs := Config.screen(self)
+	var dim := ColorRect.new()
+	dim.size = vs
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.gui_input.connect(_dim_input)
+	_popup.add_child(dim)
+	var hi := _kit_index(String(info["kit"]))
+	var glow := Polygon2D.new()
+	glow.polygon = Util.circle(170.0, 32)
+	glow.color = Color(0.45, 0.80, 1.0, 0.35) if ice else Color(1.0, 0.45, 0.12, 0.35)
+	glow.position = Vector2(vs.x / 2, vs.y * 0.52)
+	_popup.add_child(glow)
+	glow.scale = Vector2(0.1, 0.1)
+	glow.create_tween().tween_property(glow, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK)
+	HeroFigure.draw(_popup, Vector2(vs.x / 2, vs.y * 0.52 + 110), 4.0, hi, Color(0, 0, 0, 0), 1, false, id)
+	var t := Label.new()
+	t.text = "Новый облик: «%s»!\n%s" % [info["name"], String(Characters.LIST[hi]["name"]).capitalize()]
+	t.size = Vector2(vs.x, 100)
+	t.position = Vector2(0, vs.y * 0.08)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 38)
+	t.add_theme_color_override("font_color", Color(0.70, 0.92, 1.0) if ice else Color(1.0, 0.75, 0.3))
+	t.add_theme_constant_override("outline_size", 8)
+	t.add_theme_color_override("font_outline_color", Color(0.04, 0.10, 0.22) if ice else Color(0.25, 0.08, 0.02))
+	_popup.add_child(t)
+	var ok := MainMenu.make_button(_popup, "Отлично!", Vector2(vs.x / 2 - 120, vs.y - 110), Vector2(240, 70), 28)
+	ok.pressed.connect(func(): _close_offer())
+	ok.grab_focus.call_deferred()
 
 func _card_label(parent: Control, text: String, pos: Vector2, size: Vector2, font: int, c: Color) -> void:
 	var l := Label.new()

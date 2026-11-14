@@ -6,6 +6,8 @@ class_name FarStages
 #   15 — Тронный зал Тёмного лорда (76–80): люстры над залом, решётки с пламенем бездны.
 #   16 — Вершина цитадели: сюда Тёмный Лорд уводит бой во второй фазе (и здесь же
 #        третья фаза). Отдельно не выбирается — только посреди боя с Лордом.
+#   17 — Летающие острова (81–85): см. SkyIsles. 18 — Окраина деревни в огне (86–90):
+#        VillageEdge.build(world, true) + BurningVillage.
 # Механики — в FarBits, фоны — в FarArt, погода — Weather.
 
 const W := Colosseum.W
@@ -30,6 +32,10 @@ static func build(world: Node, stage: int) -> Dictionary:
 		13: return _storm(world)
 		14: return _lava(world)
 		16: return citadel(world)
+		17: return SkyIsles.build(world)
+		18: return VillageEdge.build(world, true)
+		19: return AbyssStages.hills(world)
+		20: return AbyssStages.palace(world, 1)
 		_: return _throne(world)
 
 # ---------- общее ----------
@@ -89,6 +95,7 @@ static func _layout(world: Node, c: Color, sp: Array) -> void:
 		_plat(world, Rect2(x0 - 130, FLOOR_Y - STEP, 260, 18), c)
 		_plat(world, Rect2(x0 - 90 + side * 130, FLOOR_Y - STEP * 2, 200, 18), c)
 		sp.append(Colosseum._ledge(world, x0 + side * 30, STEP * 3, 150.0))
+	_plat(world, Rect2(W / 2 - 70, FLOOR_Y - STEP, 140, 18), c)       # ступень к середине
 	_plat(world, Rect2(W / 2 - 120, FLOOR_Y - STEP * 2, 240, 18), c)
 	_plat(world, Rect2(W / 2 - 300, FLOOR_Y - STEP * 3, 170, 18), c)
 	_plat(world, Rect2(W / 2 + 130, FLOOR_Y - STEP * 3, 170, 18), c)
@@ -465,8 +472,8 @@ static func _throne(world: Node) -> Dictionary:
 # ======================= 16 — Вершина цитадели =======================
 const CITADEL_NAME := "Вершина цитадели"
 # Площадки для третьей фазы: с них достаёшь до головы Воплощения Тьмы
-const CITADEL_PLATS := [Rect2(820, FLOOR_Y - 150, 180, 18), Rect2(1600, FLOOR_Y - 150, 180, 18),
-		Rect2(1040, FLOOR_Y - 290, 170, 18), Rect2(1390, FLOOR_Y - 290, 170, 18)]
+const CITADEL_PLATS := [Rect2(820, FLOOR_Y - 130, 180, 18), Rect2(1600, FLOOR_Y - 130, 180, 18),
+		Rect2(1040, FLOOR_Y - 250, 170, 18), Rect2(1390, FLOOR_Y - 250, 170, 18)]
 
 static func citadel(world: Node) -> Dictionary:
 	_backdrop(world, FarArt.citadel_backdrop(W, FLOOR_Y))

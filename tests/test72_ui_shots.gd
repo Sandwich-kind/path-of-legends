@@ -11,7 +11,7 @@ func _initialize() -> void:
 	root.add_child(main)
 
 func snap(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png(out + n + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(out + n + ".png")
 
 func story() -> void:
 	var d := StorySave.new_game("Тест", StoryLook.default_look())
