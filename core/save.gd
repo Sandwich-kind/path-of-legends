@@ -54,6 +54,19 @@ static func reset() -> void:
 	data = _default()
 	save_game()
 
+# «Очистить прогресс» в настройках: всё, кроме настроек, — и ячейки Истории тоже
+static func wipe_all() -> void:
+	reset()
+	for slot in range(1, StorySave.SLOTS + 1):
+		StorySave.delete_slot(slot)
+	Characters.mega_on = [false, false]
+
+# (проверка) убрать с аккаунта все облики: и полученные, и выбранные
+static func clear_skins() -> void:
+	data["skins"] = []
+	data["skin_sel"] = {}
+	save_game()
+
 # ---------- Золото ----------
 static func gold() -> int:
 	return int(data.get("gold", 0))
@@ -67,10 +80,10 @@ static func add_gold(n: int) -> void:
 static func arena_progress(mode: String) -> Dictionary:
 	return data.get("arena", {}).get(mode, {})
 
-static func set_arena_progress(mode: String, next_wave: int, chars: Array, lives: int) -> void:
+static func set_arena_progress(mode: String, next_wave: int, chars: Array, lives: int, run: Array = []) -> void:
 	if not data.has("arena"):
 		data["arena"] = {}
-	data["arena"][mode] = {"wave": next_wave, "chars": chars, "lives": lives}
+	data["arena"][mode] = {"wave": next_wave, "chars": chars, "lives": lives, "run": run}
 	save_game()
 
 static func clear_arena_progress(mode: String) -> void:
@@ -121,8 +134,62 @@ static func stage_unlocked(stage: int) -> bool:
 	return false
 
 static func unlock_all_stages() -> void:
-	data["unlocked"] = range(17)
+	data["unlocked"] = range(21)
+	data["arena_done"] = true          # и сложный режим с Босс-рашем (как после победы на 100-й волне)
+	data["hard_done"] = true           # и сложный Босс-раш
+	# (проверка) все легенды как будто прошли Арену: МЕГА во вкладке Лавки и облики «Бездна»
+	for i in Characters.LIST.size():
+		mark_arena_hero(i)
+		Skins.give_abyss(i)
 	save_game()
+
+# ---------- Арена пройдена (100 волн): открыты сложный режим и Босс-раш ----------
+static func arena_done() -> bool:
+	return bool(data.get("arena_done", false))
+
+# Сложный режим пройден целиком: открыт сложный Босс-раш
+static func hard_done() -> bool:
+	return bool(data.get("hard_done", false))
+
+static func set_hard_done() -> bool:
+	if hard_done():
+		return false
+	data["hard_done"] = true
+	save_game()
+	return true
+
+# Легенды, с которыми Арена пройдена до конца (их МЕГА-версии продаются во вкладке «МЕГА» Лавки)
+static func arena_heroes() -> Array:
+	return data.get("arena_heroes", [])
+
+static func mark_arena_hero(i: int) -> bool:
+	var a: Array = data.get("arena_heroes", [])
+	if i in a:
+		return false
+	a.append(i)
+	data["arena_heroes"] = a
+	save_game()
+	return true
+
+# Легенды, с которыми пройдена сложная Арена (отметка «Чемпион» на карточке)
+static func hard_heroes() -> Array:
+	return data.get("hard_heroes", [])
+
+static func mark_hard_hero(i: int) -> bool:
+	var a: Array = data.get("hard_heroes", [])
+	if i in a:
+		return false
+	a.append(i)
+	data["hard_heroes"] = a
+	save_game()
+	return true
+
+static func set_arena_done() -> bool:
+	if arena_done():
+		return false
+	data["arena_done"] = true
+	save_game()
+	return true
 
 # ---------- Легенды за боссов ----------
 static func unlock_hero(boss: String) -> bool:

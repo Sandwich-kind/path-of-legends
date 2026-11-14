@@ -8,6 +8,8 @@ var team := 0
 var attacker: Node
 var damage := 30
 var delay := 0.35
+var pinned: Array = []        # пригвождённые стрелой — по ним взрыв бьёт гарантированно
+const RADIUS := 95.0          # взрывы следа (были 60)
 var _line: Line2D
 var _t := 0.0
 var _boomed := false
@@ -37,11 +39,15 @@ func _boom() -> void:
 	# урон каждому врагу у линии — один раз
 	for n in parent.get_children():
 		if n is Player and n.team != team and n.is_alive():
-			for i in range(1, points.size()):
-				var c := Geometry2D.get_closest_point_to_segment(n.global_position, points[i - 1], points[i])
-				if c.distance_to(n.global_position) < 60.0:
-					n.take_damage(damage, attacker)
-					break
+			var near := pinned.has(n)
+			if not near:
+				for i in range(1, points.size()):
+					var c := Geometry2D.get_closest_point_to_segment(n.global_position, points[i - 1], points[i])
+					if c.distance_to(n.global_position) < RADIUS + n.body_size.x * 0.3:
+						near = true
+						break
+			if near:
+				n.take_damage(damage, attacker)
 	# взрывы волной вдоль следа
 	var total := 0.0
 	var acc := 0.0
@@ -50,7 +56,7 @@ func _boom() -> void:
 		var seg := points[i - 1].distance_to(points[i])
 		acc += seg
 		total += seg
-		if acc >= 55.0:
+		if acc >= 70.0:
 			acc = 0.0
 			samples.append([points[i], total])
 	var dur := 0.35
@@ -69,6 +75,7 @@ func _blast_at(at: Vector2) -> void:
 	for n in parent.get_children():
 		if n is Destructible and n.shield_team != team and not n.background \
 				and n.global_position.distance_to(at) < 500.0:
-			n.hit(at, Vector2.ZERO, 30, 34.0, team, {"strict": true, "radial": true, "attacker": attacker})
-	Util.flash(parent, at, 38.0, Color(0.7, 1.0, 0.85))
-	Fx.sparks(parent, at, Color(0.6, 1.0, 0.8), 4, 160.0, 4.0)
+			n.hit(at, Vector2.ZERO, 30, 46.0, team, {"strict": true, "radial": true, "attacker": attacker})
+	Util.flash(parent, at, 62.0, Color(0.7, 1.0, 0.85))
+	Fx.ring(parent, at, RADIUS * 0.8, Color(0.6, 1.0, 0.82, 0.8), 0.25, 4.0)
+	Fx.sparks(parent, at, Color(0.6, 1.0, 0.8), 6, 220.0, 4.5)

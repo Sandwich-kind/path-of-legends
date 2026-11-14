@@ -51,8 +51,7 @@ func _physics_process(delta: float) -> void:
 				if burn > 0.0:
 					n.burn(3.0, burn, attacker)
 				if freeze > 0.0:
-					n.stun(freeze)
-					Fx.ice(n, n.body_size, freeze)
+					EliteKit.frost(n, 2)            # взмах копит иней сильнее (см. EliteKit.frost)
 				Fx.sparks(parent, n.global_position, Color(1, 1, 1), 8, 220.0, 4.0)
 		elif n is Destructible and n.shield_team != team and not n.background \
 				and absf(n.global_position.x - global_position.x) < 300.0 and absf(n.global_position.y - global_position.y) < 300.0:

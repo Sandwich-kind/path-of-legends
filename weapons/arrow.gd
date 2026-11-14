@@ -3,10 +3,13 @@ extends Node2D
 # ---------- Стрела Охотницы ----------
 # Летит по пологой дуге, проверяя путь лучом каждый кадр.
 #   mode = ""        — обычная: ранит первого врага или выбивает клетку и втыкается
+#   mode = "power"   — тетива натянута до конца: прошивает 2 врагов и 2 блока,
+#                      третий враг или блок её останавливает
 #   mode = "pierce"  — зачарованная (после переката): быстрее, больнее, прошивает
 #                      врагов и постройки насквозь (останавливает только рамка карты)
-#   mode = "ghost"   — МЕГА-зачарованная: летит сквозь всё без урона и оставляет
-#                      светящийся след, который через 1,7 с взрывается по всей длине
+#   mode = "ghost"   — МЕГА-зачарованная: летит сквозь всё и оставляет светящийся
+#                      след, который через 1,7 с взрывается по всей длине; задетые
+#                      стрелой враги замирают на месте до самого взрыва
 #   mode = "blast"   — взрывная (после крюка): взрывается при касании
 #   mode = "rain"    — стрела ливня (ульта): падает сверху, ранит и выбивает клетки
 #   mode = "giant"   — огромная стрела МЕГА-ульты: падает последней и взрывается
@@ -29,6 +32,11 @@ var _host: Node2D             # в кого воткнулся нож-бомба
 var _host_off := Vector2.ZERO
 var _fuse := -1.0
 var stop_y := INF             # ливень ульты: летит сквозь всё до уровня врага
+var pierce_foes := 2          # «power»: сколько врагов ещё прошьёт
+var pierce_blocks := 2        # «power»: сколько блоков ещё прошьёт
+var _ex: Array[RID] = []      # «power»: кого уже прошила (луч их больше не видит)
+var _pinned: Array = []       # «ghost»: кого пригвоздила — стоят до взрыва следа
+const GHOST_DELAY := 0.35     # след взрывается через столько секунд после конца полёта
 
 func _ready() -> void:
 	z_index = 4
@@ -42,6 +50,9 @@ func _ready() -> void:
 		"pierce":
 			head = Color(0.6, 1.0, 0.75)
 			fl = Color(0.4, 1.0, 0.6)
+		"power":
+			head = Color(1.0, 0.92, 0.55)
+			fl = Color(1.0, 0.72, 0.25)
 		"ghost":
 			shaft = Color(0.8, 1.0, 0.9, 0.8)
 			head = Color(1.0, 1.0, 1.0)
@@ -74,17 +85,19 @@ func _ready() -> void:
 	_poly(PackedVector2Array([Vector2(-17, 0), Vector2(-14, 1), Vector2(-21, 5)]), fl.darkened(0.3), big)
 	_poly(PackedVector2Array([Vector2(8, -4), Vector2(17, 0), Vector2(8, 0)]), head.lightened(0.25), big)
 	_poly(PackedVector2Array([Vector2(6, -1.6), Vector2(8, -1.6), Vector2(8, 1.6), Vector2(6, 1.6)]), Color(0.35, 0.22, 0.12), big)
-	if mode in ["pierce", "ghost", "blast", "giant"]:
+	if mode in ["pierce", "ghost", "blast", "giant", "power"]:
 		_glow = Polygon2D.new()
 		_glow.polygon = Util.circle(9.0 * big, 12)
 		_glow.color = Color(fl, 0.35)
 		_glow.position = Vector2(12 * big, 0)
 		_vis.add_child(_glow)
-	if mode in ["pierce", "ghost", "rain", "giant"]:
+	if mode in ["pierce", "ghost", "rain", "giant", "power"]:
 		_trail = Line2D.new()
 		_trail.top_level = true
-		_trail.width = 10.0 if mode == "ghost" else (8.0 if mode == "giant" else 3.0)
+		_trail.width = 10.0 if mode == "ghost" else (8.0 if mode == "giant" else (4.0 if mode == "power" else 3.0))
 		_trail.default_color = Color(0.55, 1.0, 0.8, 0.55) if mode in ["pierce", "ghost"] else Color(1.0, 0.95, 0.75, 0.35)
+		if mode == "power":
+			_trail.default_color = Color(1.0, 0.85, 0.4, 0.55)
 		_trail.z_index = 3
 		add_child(_trail)
 	if mode == "ghost":
@@ -123,15 +136,19 @@ func _physics_process(delta: float) -> void:
 		_glow.modulate.a = 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.02)
 	if _trail:
 		_trail.add_point(to)
-		var keep := 400 if mode == "ghost" else (14 if mode == "pierce" else 6)
+		var keep := 400 if mode == "ghost" else (14 if mode in ["pierce", "power"] else 6)
 		while _trail.get_point_count() > keep:
 			_trail.remove_point(0)
 	if mode == "ghost":
 		_trail_pts.append(to)
+		_ghost_pin(from, to)
 		global_position = to
 		return
 	if mode == "pierce":
 		_pierce_step(from, to)
+		return
+	if mode == "power":
+		_power_step(from, to)
 		return
 	if stop_y < INF:
 		_sky_step(from, to)
@@ -186,9 +203,83 @@ func _sky_step(from: Vector2, to: Vector2) -> void:
 	if land:
 		_impact(null)
 
+# МЕГА-стрела: кого задела — пригвождает к месту до взрыва следа
+func _ghost_pin(from: Vector2, to: Vector2) -> void:
+	for n in get_parent().get_children():
+		if n is Player and n.team != team and n.is_alive() and not _hit.has(n) and not n.cutscene_shield:
+			if _seg_touches(n, from, to, 26.0):          # «задела» — с запасом: стрела быстрая
+				_hit[n] = true
+				_pinned.append(n)
+				var hold := _life + GHOST_DELAY + 0.45      # до конца полёта, разгорания и волны взрывов
+				if n.is_bot and n.stagger_max <= 0.0:
+					n.stun(hold)                         # враг Арены замирает совсем
+				else:
+					n.root(hold)                         # босс и соперник в Дуэли — не сойдут с места
+				n.velocity = Vector2.ZERO
+				n._dive_t = 0.0
+				n.set_tint(Color(0.7, 1.0, 0.85))
+				var pin := GhostPin.new()
+				pin.target = n
+				pin.life = hold
+				get_parent().add_child(pin)
+				Fx.sparks(get_parent(), n.hurt_center(), Color(0.6, 1.0, 0.8), 10, 220.0, 4.0)
+
+# Задевает ли отрезок пути тело врага (прямоугольник с запасом margin)
+static func _seg_touches(n: Player, from: Vector2, to: Vector2, margin: float) -> bool:
+	var half := n.body_size / 2.0 + Vector2(margin, margin)
+	var r := Rect2(n.hurt_center() - half, half * 2.0)
+	if r.has_point(from) or r.has_point(to):
+		return true
+	var c := [r.position, r.position + Vector2(r.size.x, 0), r.end, r.position + Vector2(0, r.size.y)]
+	for i in 4:
+		if Geometry2D.segment_intersects_segment(from, to, c[i], c[(i + 1) % 4]) != null:
+			return true
+	return false
+
+# Стрела на полном натяжении: прошивает 2 врагов и 2 блока, третий её останавливает
+func _power_step(from: Vector2, to: Vector2) -> void:
+	var start := from
+	for i in 8:
+		var hit := _cast(start, to, Layer.WORLD | Layer.FRAME | Layer.PLAYER | Layer.BOT)
+		if hit.is_empty():
+			global_position = to
+			return
+		var body = hit["collider"]
+		var at: Vector2 = hit["position"]
+		if body is Node and body.has_meta("mirror"):
+			global_position = at
+			var nm: Vector2 = body.normal_at(at) if body.has_method("normal_at") else hit["normal"]
+			velocity = velocity.bounce(nm) * 0.95
+			global_position += nm * 4.0
+			return
+		if body is Player:
+			body.take_damage(damage, shooter)
+			Util.flash(get_parent(), at, 14.0, Color(1, 0.9, 0.6, 0.85))
+			if pierce_foes > 0:
+				pierce_foes -= 1
+				_ex.append(hit["rid"])
+				Fx.sparks(get_parent(), at, Color(1.0, 0.85, 0.4), 6, 200.0, 3.5)
+				start = at
+				continue
+			global_position = at
+			_impact(body)
+			return
+		if body is Destructible and pierce_blocks > 0:
+			body.hit(at, velocity.normalized(), cell_damage, 0.0, team, {"attacker": shooter, "strict": true, "power": 0.6})
+			pierce_blocks -= 1
+			_ex.append(hit["rid"])
+			start = at
+			continue
+		global_position = at
+		if body.has_method("hit"):
+			body.hit(at, velocity.normalized(), cell_damage, 0.0, team, {"attacker": shooter})
+		_impact(body)
+		return
+	global_position = to
+
 # Луч от точки до точки: пропускает своих и свои щиты
 func _cast(from: Vector2, to: Vector2, mask: int) -> Dictionary:
-	var ex: Array[RID] = []
+	var ex: Array[RID] = _ex.duplicate()
 	if is_instance_valid(shooter):
 		ex.append(shooter.get_rid())
 	var space := get_world_2d().direct_space_state
@@ -203,6 +294,8 @@ func _cast(from: Vector2, to: Vector2, mask: int) -> Dictionary:
 			skip = b.team == team or not b.is_alive()
 		elif b is Destructible:
 			skip = b.shield_team == team or b.background
+		if not skip and Util.shot_passes(b, self):
+			skip = true                   # Арена: стрела проходит сквозь мостки
 		if not skip:
 			return hit
 		ex.append(hit["rid"])
@@ -277,8 +370,35 @@ func _finish() -> void:
 		tr.team = team
 		tr.attacker = shooter
 		tr.damage = damage
+		tr.delay = GHOST_DELAY
+		tr.pinned = _pinned
 		get_parent().add_child(tr)
 	queue_free()
+
+# Светящиеся «гвозди» под пригвождённым врагом
+class GhostPin extends Node2D:
+	var target: Player
+	var life := 1.0
+	var _t := 0.0
+
+	func _ready() -> void:
+		z_index = 6
+		for side in [-1.0, 1.0]:
+			var ln := Line2D.new()
+			ln.width = 3.0
+			ln.default_color = Color(0.6, 1.0, 0.82, 0.9)
+			ln.points = PackedVector2Array([Vector2(side * 30.0, 0), Vector2(side * 8.0, -26.0)])
+			add_child(ln)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _t >= life or not is_instance_valid(target) or not target.is_alive():
+			if is_instance_valid(target):
+				target.set_tint(Color.WHITE)
+			queue_free()
+			return
+		global_position = target.global_position + Vector2(0, target.body_size.y / 2)
+		modulate.a = 0.6 + 0.4 * sin(_t * 14.0)
 
 # Нож-бомба: взрыв и россыпь мини-гранат
 func _knife_boom() -> void:

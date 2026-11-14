@@ -68,7 +68,7 @@ func weapon(delta: float, shoot: bool) -> void:
 			p._anim("throw" if not ent else "shoot")
 		"mortis":
 			var b := p._shoot_bullet(p.bullet_speed, p.bullet_damage, 0.0, p.bullet_size, 0.0)
-			b.color = Color(0.75, 0.45, 1.0)
+			b.color = Skins.col(p, Color(0.75, 0.45, 1.0))
 			b.lifesteal = 0.2
 			b.restyle("soul")
 			b.homing = 220.0
@@ -116,7 +116,7 @@ func _lob(vel: Vector2, speed: float) -> Vector2:
 func _enemies() -> Array:
 	var res := []
 	for n in p.get_parent().get_children():
-		if n is Player and n.team != p.team and n.is_alive():
+		if n is Player and n.team != p.team and n.is_alive() and not n.is_queued_for_deletion():
 			res.append(n)
 	return res
 
@@ -159,8 +159,9 @@ func _thrust() -> void:
 	t.tween_callback(line.queue_free)
 
 # ---------- Способности ----------
+# Откат (p._cd) уменьшает сам герой — один раз за кадр, в Player._handle_abilities.
+# Наборы его не трогают: только проверяют и ставят заново после приёма.
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if ab == "vine":
 		_handle_vine(i, action, delta)
 		return
@@ -172,7 +173,7 @@ func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
 	use(ab)
 	p._cd[i] = p.ability_cds[i]
 	if ab == "totem" and not duel:
-		p._cd[i] = 25.0                       # на Арене зарядов нет, но откат долгий
+		p._cd[i] = 12.5                       # на Арене зарядов нет, но откат долгий
 
 func use(ab: String) -> void:
 	var mega := p._mega_ab()
@@ -209,18 +210,18 @@ func use(ab: String) -> void:
 			if mega:
 				p.armor_mult = 0.5               # «мраморный» Чемпион
 				p.set_tint(Color(1.35, 1.35, 1.45))
-			Fx.ring(p.get_parent(), p.global_position, 140.0, Color(1.0, 0.8, 0.3, 0.8), 0.5, 6.0)
-			Fx.sparks(p.get_parent(), p.global_position + Vector2(0, -30), Color(1.0, 0.85, 0.4), 12, 220.0, 4.0, true)
+			Fx.ring(p.get_parent(), p.global_position, 140.0, Skins.col(p, Color(1.0, 0.8, 0.3, 0.8)), 0.5, 6.0)
+			Fx.sparks(p.get_parent(), p.global_position + Vector2(0, -30), Skins.col(p, Color(1.0, 0.85, 0.4)), 12, 220.0, 4.0, true)
 		"roots":
 			_roots(mega)
-			Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Color(0.5, 0.9, 0.3), 8, 120.0, 4.0, true)
+			Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Skins.col(p, Color(0.5, 0.9, 0.3)), 8, 120.0, 4.0, true)
 		"totem":
 			_place_totem(mega)
 		"summon":
 			_summon(mega)
 		"bones":
 			p._anim("cast")
-			Fx.ring(p.get_parent(), p.global_position, 120.0, Color(0.95, 0.92, 0.85, 0.8), 0.45, 5.0)
+			Fx.ring(p.get_parent(), p.global_position, 120.0, Skins.col(p, Color(0.95, 0.92, 0.85, 0.8)), 0.45, 5.0)
 			var arena := Balance.arena(p)
 			for n in p.get_parent().get_children():
 				if n is Player and n.team == p.team and n.is_alive():
@@ -232,14 +233,14 @@ func use(ab: String) -> void:
 			_ghost_mega = mega
 			p.fly_free = true
 			p.armor_mult = 0.5
-			p.set_tint(Color(0.8, 0.75, 1.0, 0.55))
-			Fx.sparks(p.get_parent(), p.global_position, Color(0.7, 0.5, 1.0), 14, 180.0, 4.0)
+			p.set_tint(Skins.col(p, Color(0.8, 0.75, 1.0, 0.55)))
+			Fx.sparks(p.get_parent(), p.global_position, Skins.col(p, Color(0.7, 0.5, 1.0)), 14, 180.0, 4.0)
 			if mega:
 				# МЕГА: сквозь стены и блоки, за спиной — облако тьмы
 				p.collision_mask = Player.PHASE_MASK
 				var sc := SmokeCloud.new()
 				sc.position = p.global_position
-				sc.modulate = Color(0.35, 0.25, 0.45)
+				sc.modulate = Skins.col(p, Color(0.35, 0.25, 0.45))
 				p.get_parent().add_child(sc)
 
 # ---------- Ульта ----------
@@ -255,15 +256,15 @@ func ult() -> void:
 			p._forced_time = 0.75
 			p._forced_vx = 0.0
 			p._anim("invoke")
-			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 80.0, Color(1.0, 0.82, 0.3, 0.9), 1.1)
-			Fx.glow(world, p.global_position + Vector2(0, -20), 90.0, Color(1.0, 0.92, 0.55, 0.25), 0.9)
+			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 80.0, Skins.col(p, Color(1.0, 0.82, 0.3, 0.9)), 1.1)
+			Fx.glow(world, p.global_position + Vector2(0, -20), 90.0, Skins.col(p, Color(1.0, 0.92, 0.55, 0.25)), 0.9)
 			_after(0.25, func():
 				var tip: Vector2 = p.rig.muzzle() if p.rig else p.global_position
-				Fx.star(world, tip, 34.0, Color(1.0, 0.95, 0.6, 0.95), 0.5)
-				Fx.sparks(world, tip, Color(1.0, 0.85, 0.35), 14, 240.0, 5.0)
+				Fx.star(world, tip, 34.0, Skins.col(p, Color(1.0, 0.95, 0.6, 0.95)), 0.5)
+				Fx.sparks(world, tip, Skins.col(p, Color(1.0, 0.85, 0.35)), 14, 240.0, 5.0)
 				var ray := Polygon2D.new()          # луч с неба на острие
 				ray.polygon = PackedVector2Array([Vector2(-10, -900), Vector2(10, -900), Vector2(3, 0), Vector2(-3, 0)])
-				ray.color = Color(1.0, 0.95, 0.7, 0.55)
+				ray.color = Skins.col(p, Color(1.0, 0.95, 0.7, 0.55))
 				ray.position = tip
 				ray.z_index = 8
 				world.add_child(ray)
@@ -280,15 +281,15 @@ func ult() -> void:
 				for k in n:
 					var s := _throw("beam", Vector2(p.facing * (260.0 + k * (110.0 if mega else 140.0)), -430.0), 12)
 					s.big = mega
-				Fx.sparks(world, p.global_position + Vector2(p.facing * 30, -20), Color(1.0, 0.85, 0.35), 10, 300.0, 5.0, true))
+				Fx.sparks(world, p.global_position + Vector2(p.facing * 30, -20), Skins.col(p, Color(1.0, 0.85, 0.35)), 10, 300.0, 5.0, true))
 		"ternovnik":
 			# «Пробуждение леса»: вихрь листьев, герой сжимается — и вырастает в Энта
 			p._forced_time = 0.95
 			p._forced_vx = 0.0
 			p._anim("transform")
 			Fx.leaf_swirl(world, p, 110.0, 0.9, 22)
-			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 90.0, Color(0.45, 0.95, 0.35, 0.9), 1.2)
-			Fx.glow(world, p.global_position, 80.0, Color(0.4, 1.0, 0.35, 0.3), 1.0)
+			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 90.0, Skins.col(p, Color(0.45, 0.95, 0.35, 0.9)), 1.2)
+			Fx.glow(world, p.global_position, 80.0, Skins.col(p, Color(0.4, 1.0, 0.35, 0.3)), 1.0)
 			_after(0.55, func():
 				if not p.is_alive():
 					return
@@ -304,7 +305,7 @@ func ult() -> void:
 				p.armor_mult = 0.6
 				totem_charges = mini(TOTEM_CHARGES, totem_charges + 1)
 				Fx.leaf_burst(world, p.global_position, 30)
-				Fx.ring(world, p.global_position + Vector2(0, p.body_size.y / 2), 160.0, Color(0.5, 1.0, 0.4, 0.9), 0.5, 8.0, 0.35)
+				Fx.ring(world, p.global_position + Vector2(0, p.body_size.y / 2), 160.0, Skins.col(p, Color(0.5, 1.0, 0.4, 0.9)), 0.5, 8.0, 0.35)
 				Fx.cracks(world, p.global_position + Vector2(0, p.body_size.y / 2), Color(0.3, 0.22, 0.12), 110.0)
 				var saplings := 2 if mega else 0
 				if Balance.arena(p):
@@ -321,9 +322,9 @@ func ult() -> void:
 			p._forced_time = 0.6
 			p._forced_vx = 0.0
 			p._anim("invoke")
-			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 75.0, Color(0.75, 0.45, 1.0, 0.9), 1.0)
+			Fx.rune_circle(world, p.global_position + Vector2(0, p.body_size.y / 2), 75.0, Skins.col(p, Color(0.75, 0.45, 1.0, 0.9)), 1.0)
 			_ghost_crown(world)
-			Fx.sparks(world, p.global_position, Color(0.75, 0.5, 1.0), 12, 200.0, 4.0, true)
+			Fx.sparks(world, p.global_position, Skins.col(p, Color(0.75, 0.5, 1.0)), 12, 200.0, 4.0, true)
 			_after(0.45, func():
 				if not p.is_alive():
 					return
@@ -370,7 +371,7 @@ func _ghost_crown(world: Node) -> void:
 	var c := Polygon2D.new()
 	c.polygon = PackedVector2Array([Vector2(-22, 0), Vector2(-22, -18), Vector2(-11, -8), Vector2(0, -26),
 			Vector2(11, -8), Vector2(22, -18), Vector2(22, 0)])
-	c.color = Color(0.85, 0.65, 1.0, 0.0)
+	c.color = Skins.col(p, Color(0.85, 0.65, 1.0, 0.0))
 	c.z_index = 9
 	c.position = p.global_position + Vector2(0, -p.body_size.y / 2 - 40)
 	world.add_child(c)
@@ -469,9 +470,9 @@ func _bash_wave() -> void:
 		if absf(to.x) < r and absf(to.y) < 120.0 and signf(to.x) != -p.facing:
 			e.take_damage(14 if not _bash_mega else 20, p)
 			e.velocity = Vector2(p.facing * 480.0, -320.0)
-	Fx.ring(world, at, r, Color(1.0, 0.85, 0.45, 0.9), 0.35, 6.0, 0.3)
-	Fx.sparks(world, at, Color(1.0, 0.85, 0.5), 12, 260.0, 4.0, true)
-	Fx.cracks(world, at, Color(0.35, 0.28, 0.2), 70.0)
+	Fx.ring(world, at, r, Skins.col(p, Color(1.0, 0.85, 0.45, 0.9)), 0.35, 6.0, 0.3)
+	Fx.sparks(world, at, Skins.col(p, Color(1.0, 0.85, 0.5)), 12, 260.0, 4.0, true)
+	Fx.cracks(world, at, Skins.col(p, Color(0.35, 0.28, 0.2)), 70.0)
 
 func _update_bash() -> void:
 	var reach := p.body_size.x * (0.9 if _bash_mega else 0.6) + 20.0
@@ -576,7 +577,7 @@ func _tick_totems(delta: float) -> void:
 				n.heal(5 if tall else 3)
 				if tall:
 					n.boost(1.25, 1.2)            # высокий тотем усиливает урон
-				Util.flash(p.get_parent(), n.global_position, 16.0, Color(0.4, 1.0, 0.4, 0.6))
+				Util.flash(p.get_parent(), n.global_position, 16.0, Skins.col(p, Color(0.4, 1.0, 0.4, 0.6)))
 
 func _totem_shot(t: Player) -> void:
 	var from := t.global_position + Vector2(0, -t.body_size.y * 0.35)
@@ -597,7 +598,7 @@ func _totem_shot(t: Player) -> void:
 	s.velocity = Spear.aim(from, best.hurt_center(), clampf(bd / 700.0, 0.3, 1.0))
 	s.position = from
 	p.get_parent().add_child(s)
-	Fx.sparks(p.get_parent(), from, Color(0.5, 1.0, 0.4), 4, 120.0, 3.0)
+	Fx.sparks(p.get_parent(), from, Skins.col(p, Color(0.5, 1.0, 0.4)), 4, 120.0, 3.0)
 
 # Лиана: зажми — над героем качается стрелка; отпусти — лиана летит туда
 func _handle_vine(i: int, action: String, delta: float) -> void:
@@ -605,7 +606,7 @@ func _handle_vine(i: int, action: String, delta: float) -> void:
 		_arrow = Polygon2D.new()
 		_arrow.polygon = PackedVector2Array([Vector2(0, -5), Vector2(60, -5), Vector2(60, -13), Vector2(84, 0),
 				Vector2(60, 13), Vector2(60, 5), Vector2(0, 5)])
-		_arrow.color = Color(0.5, 1.0, 0.35, 0.85)
+		_arrow.color = Skins.col(p, Color(0.5, 1.0, 0.35, 0.85))
 		_arrow.position = Vector2(0, -p.body_size.y / 2 - 6)
 		_arrow.visible = false
 		p.add_child(_arrow)
@@ -632,7 +633,7 @@ func _shoot_vine(dir: Vector2, mega: bool) -> void:
 	_anchor = hit["position"] if not hit.is_empty() else from + dir * 520.0   # не нашла блок — цепляется за воздух
 	_vine = Line2D.new()
 	_vine.width = 5.0
-	_vine.default_color = Color(0.3, 0.6, 0.2)
+	_vine.default_color = Skins.col(p, Color(0.3, 0.6, 0.2))
 	p.get_parent().add_child(_vine)
 	var to := _anchor - p.global_position
 	var v := to.normalized() * clampf(to.length() * 3.2, 600.0, 1250.0)
@@ -676,7 +677,7 @@ func _ent_smash() -> void:
 # ---------- Мортис ----------
 func _summon(mega: bool) -> void:
 	p._anim("summon")
-	Fx.rune_circle(p.get_parent(), p.global_position + Vector2(p.facing * 50.0, p.body_size.y / 2), 50.0, Color(0.7, 0.45, 1.0, 0.85), 0.8)
+	Fx.rune_circle(p.get_parent(), p.global_position + Vector2(p.facing * 50.0, p.body_size.y / 2), 50.0, Skins.col(p, Color(0.7, 0.45, 1.0, 0.85)), 0.8)
 	_minions = _minions.filter(func(m): return is_instance_valid(m) and m.is_alive())
 	# всего не больше 5 призванных скелетов (и в МЕГА-форме тоже)
 	var alive := _minions.size()
@@ -714,9 +715,14 @@ func _spawn_minion(kind: String, pos: Vector2, life: float) -> Player:
 	b.target = target
 	b.position = Vector2(pos.x, pos.y + p.body_size.y / 2 - size.y / 2 - 2.0)
 	b.add_to_group("allies")
+	if p.has_meta("skin"):
+		# питомцы героя в облике — в цветах его серии
+		var sk: String = p.get_meta("skin")
+		b.rig_spec = Skins.form_spec(kind, sk)
+		b.set_meta("skin", sk)
 	Balance.inherit(b, p)                 # бьёт с теми же поправками режима, что и хозяин
 	p.get_parent().add_child(b)
-	Util.flash(p.get_parent(), b.position, size.y * 0.7, Color(0.7, 0.5, 1.0, 0.7) if hero == "mortis" else Color(0.4, 0.9, 0.3, 0.7))
+	Util.flash(p.get_parent(), b.position, size.y * 0.7, Skins.col(p, Color(0.7, 0.5, 1.0, 0.7)) if hero == "mortis" else Color(0.4, 0.9, 0.3, 0.7))
 	_minions.append(b)
 	return b
 
@@ -733,7 +739,7 @@ func _ghost_drain(delta: float) -> void:
 			var l := Line2D.new()
 			l.points = PackedVector2Array([e.global_position, p.global_position])
 			l.width = 3.0
-			l.default_color = Color(0.75, 0.45, 1.0, 0.7)
+			l.default_color = Skins.col(p, Color(0.75, 0.45, 1.0, 0.7))
 			p.get_parent().add_child(l)
 			var t := l.create_tween()
 			t.tween_property(l, "modulate:a", 0.0, 0.25)

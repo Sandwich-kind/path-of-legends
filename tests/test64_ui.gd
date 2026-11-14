@@ -12,11 +12,11 @@ func _initialize() -> void:
 func _physics_process(_d: float) -> bool:
 	f += 1
 	if f == 10:
-		root.get_viewport().get_texture().get_image().save_png("res://tests/shots/ui_menu.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/ui_menu.png")
 	if f == 12 + i * 60 and i < PAIRS.size():
 		main._on_duel_ready("test_field", 9, 99, PAIRS[i], {})
 	if f == 12 + i * 60 + 50:
-		root.get_viewport().get_texture().get_image().save_png("res://tests/shots/ui_duel_%d.png" % i)
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/ui_duel_%d.png" % i)
 		i += 1
 		if i >= PAIRS.size():
 			return true

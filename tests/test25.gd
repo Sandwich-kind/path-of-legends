@@ -31,12 +31,12 @@ func _physics_process(_d: float) -> bool:
 	match f:
 		3:
 			main.sel = [0, 0]
-			main.start_arena()
+			main.start_arena(false, 1)
 			for n in main.world.get_children():
 				if n is ArenaMode: arena = n
 			arena._queue.clear()
 		10:
-			p = arena.player
+			p = arena.players[0]
 			arena.wave = 99           # волны не идут, бой не начинается
 		# --- лестница: прыжки по башне в центре до алтаря (4 яруса)
 		200:

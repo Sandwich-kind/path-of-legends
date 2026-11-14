@@ -13,7 +13,7 @@ func _initialize() -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png(shots + "zara_%s.png" % n)
+		if img: img.save_png(shots + "zara_%s.png" % n)
 func press(a: String) -> void:
 	Input.action_press(a)
 func _physics_process(_d: float) -> bool:

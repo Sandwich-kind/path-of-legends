@@ -17,7 +17,7 @@ func press(a: String) -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png(shots + "ras_%s.png" % n)
+		if img: img.save_png(shots + "ras_%s.png" % n)
 func place(dx: float) -> void:
 	p1.global_position.x = 1000
 	p2.global_position = Vector2(1000 + dx, p1.global_position.y)

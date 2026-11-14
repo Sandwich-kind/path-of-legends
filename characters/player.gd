@@ -76,9 +76,37 @@ var mortar_count := 12         # сколько снарядов в залпе
 var respawn := true            # false — после смерти исчезает (боты Арены)
 var respawn_protect := 0.0     # неуязвимость после возрождения (мигает)
 var _bot_cd := {}
+var ab_tempo := 1.0           # темп способностей бота (баланс Арены: >1 — чаще, <1 — реже)
 var _melee_cd := 0.0
+# Ближник Арены (волк, паук, осколочник…) — охотник стаей, а не «липучка»:
+#   — замахивается (глаза вспыхивают), кусает и отскакивает назад;
+#   — вплотную к герою — не больше двух, и они расходятся по разные стороны:
+#     второй обегает или перепрыгивает героя и заходит со спины;
+#   — остальные кружат рядом, то подступая, то отходя, и бросаются в прыжке;
+#   — ловят момент: герой отвернулся, перезаряжается, колдует или оглушён —
+#     замах короче и второй укус следом;
+#   — герой целится в них и стреляет — подпрыгивают над выстрелом.
+var skirmish := false
+var _retreat_t := 0.0
+var _retreat_dir := 0.0
+var _bite_wind := 0.0
+var _pack_check := 0.0
+var _pack_wait := false
+var _bites_left := 2
+var _flank := 0.0                # с какой стороны от героя заходит (-1 / 1, 0 — всё равно)
+var _sk_jump := false
+var _dodge_cd := 0.0
+var _feint := 0.0
+const PACK_BITERS := 2
 var _mortar_target_x := NAN
 var _protect := 0.0
+var run := {}                  # усиления из Магазина Арены до конца прохождения (RunShop)
+var _vamp := 0.0
+var glitch_t := 0.0             # сбитое управление (Ethernet-кнут): идёт не туда и не стреляет
+var mark_t := 0.0               # помечен «Сноской» Летописца: по нему проходит больше урона
+var mute_t := 0.0               # заглушён микрофоном DJ Климы: не может применять способности и ульту
+var _mute_fx: Node2D
+var mark_mult := 1.0
 var _bar_w := 50.0
 
 var _cd: Array = [0.0, 0.0, 0.0]
@@ -175,6 +203,7 @@ var mega_mode := false        # куплено и включено «МЕГА» 
 var kit: Node                  # набор способностей легенды (HeroKit)
 var rig_kind := ""             # модель из частей для героя
 var rig_spec := {}
+var _skin_fx: Node               # облик: вид способностей в цветах серии (core/skins.gd)
 var back_mult := 1.0           # урон в спину сильнее (котёл Барона Грызя)
 var crust := 0.0               # самоцветная / кристальная корка: принимает урон на себя
 var crust_burst := false       # корка взрывается осколками, когда ломается (МЕГА-«Преломление» Призмы)
@@ -191,8 +220,13 @@ var _lose_t := 0.0             # своё описание модели (гер�
 var _rig_root: Node2D          # держатель модели: через него герой растёт/уменьшается
 var move_mult := 1.0           # множитель скорости (форма Энта)
 var armor_mult := 1.0          # множитель получаемого урона (форма Энта, мраморный Чемпион)
+var front_mult := 1.0          # урон спереди (раскрытое ядро Колосса-остова: бей в грудь!)
 var bonus_mult := 1.0          # усиление урона (Рёв толпы, высокий тотем)
 var _bonus_t := 0.0
+var fly_hover := Vector2(160.0, -130.0)   # летун держится над целью: размах по x, высота
+var fly_side := false          # летун держится сбоку от цели (на fly_hover.x), а не кружит над головой
+var _fly_side := 0
+var _fly_flip_t := 0.0
 var fly_free := false          # Призрачный шаг: летает в любую сторону
 var anchored := false          # часть огромного босса (голова и руки Воплощения Тьмы): двигает её «мозг», не физика
 var map_top := -400.0          # выше этого не улететь
@@ -272,12 +306,20 @@ func _ready() -> void:
 			wr.bot = self
 			wr.kind = k
 			rig = wr
+		elif k in RiftRig.KINDS:
+			var rr := RiftRig.new()
+			rr.bot = self
+			rr.kind = k
+			rig = rr
 		else:
 			var br := BotRig.new()
 			br.bot = self
 			br.kind = k
 			br.custom_spec = rig_spec
 			rig = br
+			if has_meta("skin"):
+				var sk: String = get_meta("skin")
+				(func(): Skins.decorate(br, sk)).call_deferred()
 		_rig_root = Node2D.new()
 		_rig_root.position = Vector2(0, bs.y / 2)     # растёт от ступней
 		add_child(_rig_root)
@@ -415,6 +457,10 @@ func _physics_process(delta: float) -> void:
 		dir = 0.0
 		jump = false
 		shoot = false
+	if glitch_t > 0.0:
+		glitch_t -= delta
+		dir = -dir if dir != 0.0 else (1.0 if fmod(glitch_t, 0.4) < 0.2 else -1.0)
+		shoot = false
 	if cutscene_walk != 0.0:
 		dir = cutscene_walk            # кат-сцена: босс выходит сам
 	if _root_t > 0.0:
@@ -430,6 +476,8 @@ func _physics_process(delta: float) -> void:
 		down = Input.is_action_pressed(prefix + "_down")
 		if Input.is_action_just_pressed(prefix + "_down") and not fly_free:
 			_try_drop()
+		elif fly_free and down and _drop_t <= 0.0:
+			_try_drop()          # в свободном полёте (ульта Рассвета) вниз — сквозь платформы
 
 	_tick_buffs(delta)
 	var move_speed := speed * move_mult
@@ -491,9 +539,13 @@ func _physics_process(delta: float) -> void:
 		velocity.x = base_vx
 		if jump and on_floor:
 			velocity.y = -jf
+			if not is_bot:
+				Audio.sfx("jump", global_position)
 		elif jump and is_mega("speed") and _air_jumps > 0:
 			_air_jumps -= 1          # МЕГА-«Ветер»: прыжок прямо в воздухе
 			velocity.y = -jf
+			if not is_bot:
+				Audio.sfx("jump", global_position)
 		if is_bot and is_instance_valid(target) and _stun_t <= 0.0 and aware:
 			var want := 1 if target.global_position.x > global_position.x else -1
 			if absf(target.global_position.x - global_position.x) < body_size.x * 0.35:
@@ -542,7 +594,10 @@ func _physics_process(delta: float) -> void:
 			remove_collision_exception_with(_drop_body)
 			_drop_body = null
 
+	var cd0 := _cooldown_left
 	_handle_weapon(delta, shoot)
+	if _cooldown_left > cd0:
+		Audio.shot(self)                    # оружие сработало — звук выстрела
 	if not is_bot:
 		if not frozen:
 			_handle_abilities(delta)
@@ -624,7 +679,7 @@ func _shoot_bullet(spd: float, dmg: int, blast: float, size: float, spread: floa
 	if has_meta("burn_shots"):
 		b.burn_t = float(get_meta("burn_shots"))
 	if not is_bot and kit != null and Balance.arena(self):   # только на Арене; TESTIK-и (без набора) не трогаем
-		b.direction = assist_dir(b.position, b.direction)
+		b.direction = assist_dir(b.position, b.direction, spd)
 	get_parent().add_child(b)
 	return b
 
@@ -634,6 +689,7 @@ func _shoot_bullet(spd: float, dmg: int, blast: float, size: float, spread: floa
 # и в мышь под потолком. В Дуэли по живому сопернику доводки нет — там решает умение.
 # speed и grav — для стрел по дуге: целимся чуть выше, чтобы стрела не упала раньше.
 const ASSIST_ANGLE := 0.45           # до ~26° вверх или вниз
+const ASSIST_ANGLE_AIR := 0.95       # летуны (мыши, моли, гарпии) кружат над головой — до ~54°
 const ASSIST_RANGE := 1100.0
 
 func assist_dir(from: Vector2, dir: Vector2, speed := 0.0, grav := 0.0) -> Vector2:
@@ -647,11 +703,17 @@ func assist_dir(from: Vector2, dir: Vector2, speed := 0.0, grav := 0.0) -> Vecto
 		var dist := to.length()
 		if dist > ASSIST_RANGE or dist < 8.0 or to.x * dir.x <= 0.0:
 			continue
+		var air: bool = n.flying or n.fly_free
+		if air and speed > 0.0:
+			# летун быстрый — стреляем туда, где он будет, когда долетит снаряд
+			to += n.velocity * (dist / speed) * 0.85
+			if to.x * dir.x <= 0.0:
+				continue
 		if speed > 0.0 and grav > 0.0:
 			var t := dist / speed
 			to.y -= 0.5 * grav * t * t          # стрела падает — целимся чуть выше
 		var a := absf(dir.angle_to(to))
-		if a > ASSIST_ANGLE:
+		if a > (ASSIST_ANGLE_AIR if air else ASSIST_ANGLE):
 			continue
 		var score := a + dist / ASSIST_RANGE * 0.12   # ближние важнее
 		if score < best_score:
@@ -671,8 +733,13 @@ func _anim(n: String) -> void:
 
 # ----- Способности -----
 func _handle_abilities(delta: float) -> void:
+	var cds0 := _cd.duplicate()               # откат вырос — способность сработала (звук)
 	for i in 3:
 		_cd[i] = maxf(0.0, _cd[i] - delta * _cd_speed())
+	if mute_t > 0.0:                          # заглушён: способности и ульта молчат, откат идёт
+		if not (kit and kit.has_method("ulting") and kit.ulting()):
+			ult_charge = minf(ult_need, ult_charge + delta * 3.0)
+		return
 	for i in 3:
 		var ab: String = abilities[i]
 		if ab == "":
@@ -693,13 +760,22 @@ func _handle_abilities(delta: float) -> void:
 						_cd[j] = 0.0
 				ammo = clip_size
 				_reloading = 0.0
+	Audio.casts(self, cds0)
+	for ci in mini(cds0.size(), _cd.size()):
+		if float(_cd[ci]) > float(cds0[ci]) + 0.01:
+			if _skin_fx:
+				_skin_fx.cast()
+			if kit:
+				Fx.cast_flourish(self, color)                 # у всех легенд приём вспыхивает цветом легенды
+			break
 	# ульта копится от урона и понемногу сама
 	if not (kit and kit.has_method("ulting") and kit.ulting()):
 		ult_charge = minf(ult_need, ult_charge + delta * 3.0)
 	if kit and kit.has_method("ult_recast") and Input.is_action_just_pressed(prefix + "_ult") and kit.ult_recast():
 		return                     # повторное нажатие ульты (Ассасин: рывок к отмеченной цели)
 	if ult != "" and Input.is_action_just_pressed(prefix + "_ult") \
-			and ult_charge >= ult_need and _ult_left <= 0.0:
+			and ult_charge >= ult_need and _ult_left <= 0.0 \
+			and not (kit and kit.has_method("ulting") and kit.ulting()):
 		ult_charge = 0.0
 		_start_ult()
 
@@ -917,6 +993,11 @@ func _fire_mortar(homing := false) -> void:
 	get_parent().add_child(m)
 
 func _start_ult() -> void:
+	Audio.ult(self)
+	if _skin_fx:
+		_skin_fx.ult()
+	if kit and not is_bot:
+		Fx.ult_cutin(self, color, ult_title())
 	if kit:
 		kit.ult()
 		return
@@ -944,6 +1025,17 @@ func _start_ult() -> void:
 				get_parent().add_child(em)
 			Util.flash(get_parent(), Vector2(position.x, position.y + body_size.y / 2),
 					70.0 if mega else 40.0, Color(1.0, 0.5, 0.1))
+
+# Название ульты легенды (из описания в Книге легенд, без слова «Ульта:»)
+func ult_title() -> String:
+	if not has_meta("legend"):
+		return ""
+	var sk: Array = Characters.LIST[int(get_meta("legend"))].get("skills", [])
+	for s in sk:
+		var n := String((s as Array)[0])
+		if n.begins_with("Ульта"):
+			return n.trim_prefix("Ульта:").strip_edges()
+	return ""
 
 func heal(amount: int) -> void:
 	hp = mini(max_hp, hp + amount)
@@ -1036,6 +1128,8 @@ func _bot_think(delta: float) -> Array:
 		dir = signf(to.x)
 	elif d < keep_min:
 		dir = -signf(to.x)
+	if skirmish:
+		dir = _skirmish_dir(delta, to, d, dir)
 	var jump := false
 	_think_timer -= delta
 	if _think_timer <= 0.0:
@@ -1048,6 +1142,9 @@ func _bot_think(delta: float) -> Array:
 			jump = true
 	if is_on_wall() and dir != 0.0:
 		jump = true
+	if _sk_jump:
+		_sk_jump = false
+		jump = true
 	if not flying and speed > 0.0:              # стоячие (тотемы) никуда не ходят и не спрыгивают
 		var nav := _bot_navigate(delta, to, dir)
 		dir = nav[0]
@@ -1057,19 +1154,134 @@ func _bot_think(delta: float) -> Array:
 		shoot = to.length() < shoot_range       # бросает дугой — достаёт и выше, и ниже
 	# урон вплотную
 	_melee_cd -= delta
-	if melee_dmg > 0 and _melee_cd <= 0.0 and d < (body_size.x + target.body_size.x) / 2 + 14.0 \
-			and absf(to.y) < 60.0:
+	var reach: float = (body_size.x + target.body_size.x) / 2 + 14.0
+	if skirmish:
+		if _bite_wind > 0.0:
+			_bite_wind -= delta
+			if _bite_wind <= 0.0:
+				var landed := d < reach + 22.0 and absf(to.y) < 70.0
+				if landed:
+					target.take_damage(melee_dmg, self)
+				_bites_left -= 1
+				if landed and _bites_left > 0 and _target_open():
+					_melee_cd = 0.3                # герой открылся — второй укус следом
+				else:
+					_start_retreat(to)
+		elif melee_dmg > 0 and _melee_cd <= 0.0 and _retreat_t <= 0.0 and d < reach + 8.0 and absf(to.y) < 60.0:
+			_bite_wind = 0.15 if _target_open() else 0.25     # замах: глаза вспыхивают, через миг укус
+			_melee_cd = 0.9
+			_anim("punch")
+			if _eye:
+				var tw := _eye.create_tween()
+				_eye.modulate = Color(3.0, 1.2, 1.0)
+				tw.tween_property(_eye, "modulate", Color.WHITE, 0.3)
+	elif melee_dmg > 0 and _melee_cd <= 0.0 and d < reach and absf(to.y) < 60.0:
 		target.take_damage(melee_dmg, self)
 		_melee_cd = 0.6
 		_anim("punch")
 	_bot_use_abilities(delta, to)
 	return [dir, jump, shoot]
 
+# Ближник: куда идти (см. описание у skirmish)
+func _skirmish_dir(delta: float, to: Vector2, d: float, dir: float) -> float:
+	_dodge_cd -= delta
+	_feint += delta
+	if _retreat_t > 0.0:
+		_retreat_t -= delta
+		if is_on_wall():
+			_retreat_t = 0.0                  # упёрся в стену — хватит пятиться
+		return _retreat_dir
+	if _bite_wind > 0.0:
+		return signf(to.x) * 0.35            # на замахе подкрадывается медленно
+	_pack_check -= delta
+	if _pack_check <= 0.0:
+		_pack_check = randf_range(0.25, 0.4)
+		_pack_wait = _pack_crowded(PACK_BITERS)
+		_flank = _pick_flank()
+	# герой целится и стреляет — подпрыгнуть над выстрелом
+	if _dodge_cd <= 0.0 and is_on_floor() and d > 110.0 and d < 620.0 and _aimed_at(to):
+		_dodge_cd = randf_range(1.3, 2.4)
+		if randf() < 0.6:
+			_sk_jump = true
+			return signf(to.x)
+	if _pack_wait:
+		# кружит рядом: то подступает, то отходит — и ждёт свою очередь (или прыгает)
+		var want := 215.0 + 75.0 * sin(_feint * 2.1 + float(get_instance_id() % 13))
+		if d < want - 30.0:
+			return -signf(to.x)
+		if d > want + 30.0:
+			return signf(to.x)
+		return 0.0
+	if _flank != 0.0 and is_instance_valid(target):
+		var side := signf(global_position.x - target.global_position.x)
+		if side != _flank and d < 150.0:
+			# зайти с другой стороны: перепрыгнуть героя
+			if is_on_floor() and target.is_on_floor():
+				_sk_jump = true
+			return -side
+		if side == _flank:
+			return dir if d > 40.0 else 0.0
+	return dir
+
+func _start_retreat(to: Vector2) -> void:
+	_retreat_t = randf_range(0.4, 0.7)
+	_retreat_dir = -signf(to.x) if to.x != 0.0 else float(-facing)
+	_bites_left = 2
+	if is_on_floor():
+		velocity.y = -260.0                   # отскок — короткий прыжок назад
+
+# Герой «открылся»: отвернулся, перезаряжается, колдует или оглушён
+func _target_open() -> bool:
+	if not is_instance_valid(target) or not (target is Player):
+		return false
+	var t: Player = target
+	var side := signf(global_position.x - t.global_position.x)
+	return side == -t.facing or t._reloading > 0.0 or t._forced_time > 0.0 or t._stun_t > 0.0
+
+# Герой смотрит на меня и только что выстрелил
+func _aimed_at(to: Vector2) -> bool:
+	if not is_instance_valid(target) or not (target is Player) or target.is_bot:
+		return false
+	var t: Player = target
+	return signf(-to.x) == t.facing and absf(to.y) < 90.0 and t._cooldown_left > 0.0 and t.melee_dmg == 0
+
+func _pack_crowded(limit: int) -> bool:
+	if not is_instance_valid(target):
+		return false
+	var close := 0
+	for n in get_tree().get_nodes_in_group("melee_pack"):
+		if n == self or not is_instance_valid(n) or not n.is_alive() or n.target != target or n._retreat_t > 0.0:
+			continue
+		if absf(n.global_position.x - target.global_position.x) < 120.0 and not n._pack_wait:
+			close += 1
+	return close >= limit
+
+# С какой стороны заходить: туда, где своих меньше (двое — с разных сторон)
+func _pick_flank() -> float:
+	if not is_instance_valid(target):
+		return 0.0
+	var me := signf(global_position.x - target.global_position.x)
+	var count := {-1.0: 0, 1.0: 0}
+	for n in get_tree().get_nodes_in_group("melee_pack"):
+		if n == self or not is_instance_valid(n) or not n.is_alive() or n.target != target or n._pack_wait:
+			continue
+		if absf(n.global_position.x - target.global_position.x) < 160.0:
+			var s := signf(n.global_position.x - target.global_position.x)
+			if s != 0.0:
+				count[s] += 1
+	if me == 0.0:
+		me = 1.0
+	if count[me] > count[-me]:
+		return -me
+	return me
+
 func _bot_use_abilities(delta: float, to: Vector2) -> void:
 	for ab in bot_abilities:
 		if not _bot_cd.has(ab):
 			_bot_cd[ab] = randf_range(1.5, bot_abilities[ab])   # первый раз — не сразу
-		_bot_cd[ab] -= delta
+		_bot_cd[ab] -= delta * ab_tempo
+		if mute_t > 0.0:
+			_bot_cd[ab] = maxf(_bot_cd[ab], 0.2)          # заглушён — приём подождёт
 		if _bot_cd[ab] <= 0.0 and _bot_try(ab, to):
 			_bot_cd[ab] = bot_abilities[ab] * randf_range(0.85, 1.15)
 
@@ -1258,7 +1470,8 @@ func _bot_try(ab: String, to: Vector2) -> bool:
 				return true
 		_:
 			# способности противников глубин, леса, деревни и Колизея
-			return DeepAbilities.try(self, ab, to) or RaidAbilities.try(self, ab, to) or FarAbilities.try(self, ab, to)
+			return DeepAbilities.try(self, ab, to) or RaidAbilities.try(self, ab, to) or FarAbilities.try(self, ab, to) \
+					or RiftAbilities.try(self, ab, to) or AbyssAbilities.try(self, ab, to)
 	return false
 
 # ----- Особые атаки ботов -----
@@ -1346,9 +1559,25 @@ func _fly(delta: float) -> void:
 	if _dive_t > 0.0:
 		_dive_t -= delta
 		velocity = _dive_v
+	elif _forced_time > 0.0:
+		# замах, заряд или веер в полёте: зависает (или его сносит толчком), пауза отсчитывается и в небе
+		_forced_time -= delta
+		velocity = Vector2(_forced_vx, move_toward(velocity.y, 0.0, 1400.0 * delta))
 	elif is_instance_valid(target):
 		var tt := Time.get_ticks_msec() * 0.002 + get_instance_id() % 7
-		var goal: Vector2 = target.global_position + Vector2(sin(tt) * 160.0, -130.0 + cos(tt * 1.7) * 40.0)
+		var goal: Vector2 = target.global_position + Vector2(sin(tt) * fly_hover.x, fly_hover.y + cos(tt * 1.7) * 40.0)
+		if fly_side:
+			# сбоку от цели и чуть выше: по нему можно попасть, а он бьёт с удобной дистанции;
+			# у стены или время от времени — перелетает на другую сторону
+			_fly_flip_t -= delta
+			if _fly_side == 0:
+				_fly_side = 1 if global_position.x >= target.global_position.x else -1
+				_fly_flip_t = randf_range(7.0, 11.0)
+			var gx: float = target.global_position.x + _fly_side * fly_hover.x
+			if gx < 120.0 or gx > map_w - 120.0 or _fly_flip_t <= 0.0:
+				_fly_side = -_fly_side
+				_fly_flip_t = randf_range(7.0, 11.0)
+			goal = target.global_position + Vector2(_fly_side * fly_hover.x + sin(tt) * 40.0, fly_hover.y + cos(tt * 1.7) * 18.0)
 		var want := (goal - global_position)
 		var v := want.normalized() * minf(speed, want.length() * 3.0)
 		velocity = velocity.move_toward(v, 1400.0 * delta)
@@ -1368,6 +1597,10 @@ func _update_pounce(delta: float) -> void:
 			target.take_damage(maxi(melee_dmg * 2, 10), self)
 			target.slow(0.6, 0.6)
 			_pounce_t = 0.0
+			if skirmish:
+				_after(0.25, func():
+					if _alive and is_instance_valid(target):
+						_start_retreat(target.global_position - global_position))
 	if is_on_floor() and _pounce_t < 0.45:
 		_pounce_t = 0.0
 
@@ -1391,6 +1624,8 @@ func _spawn_bone_spike(x: float) -> void:
 func slow(t: float, mult: float, look := "web") -> void:
 	_slow_t = maxf(_slow_t, t)
 	_slow_mult = mult
+	if look == "water":
+		return                   # в воде (ров «Замков») просто медленнее, ничего не налипает
 	if look == "mud":
 		# вязнет в грязи: бурые комья налипли на ноги (паутину не рисуем)
 		if _mud_fx == null:
@@ -1451,6 +1686,13 @@ func slow(t: float, mult: float, look := "web") -> void:
 
 # ----- Общие состояния: яд, корни, кости-обереги, спрыгивание -----
 func _tick_status(delta: float) -> void:
+	if mark_t > 0.0:
+		mark_t -= delta
+	if mute_t > 0.0:
+		mute_t -= delta
+		if mute_t <= 0.0 and _mute_fx:
+			_mute_fx.queue_free()
+			_mute_fx = null
 	if _freeze_t > 0.0:
 		_freeze_t -= delta
 		if _freeze_t <= 0.0 or not _alive:
@@ -1590,9 +1832,14 @@ func set_rig(kind_name: String) -> void:
 	br.bot = self
 	br.kind = kind_name
 	br.custom_spec = rig_spec if kind_name == rig_kind else {}
+	if kind_name != rig_kind and has_meta("skin"):
+		br.custom_spec = Skins.form_spec(kind_name, String(get_meta("skin")))     # другая форма — тоже в облике
 	br.position = Vector2(0, -body_size.y / 2)
 	rig = br
 	_rig_root.add_child(br)
+	if has_meta("skin"):
+		var sk: String = get_meta("skin")
+		(func(): Skins.decorate(br, sk)).call_deferred()
 
 func set_visual_scale(s: float, time := 0.2) -> void:
 	if _rig_root:
@@ -1670,6 +1917,36 @@ func stun(t: float) -> void:
 
 func is_stunned() -> bool:
 	return _stun_t > 0.0
+
+# Заглушён (микрофон DJ Климы): над головой перечёркнутая нота, способности и ульта молчат
+func mute(t: float) -> void:
+	if t <= 0.0 or not _alive:
+		mute_t = 0.0
+		if _mute_fx:
+			_mute_fx.queue_free()
+			_mute_fx = null
+		return
+	mute_t = maxf(mute_t, t)
+	if _mute_fx == null:
+		_mute_fx = Node2D.new()
+		_mute_fx.position = Vector2(body_size.x * 0.5 + 10, -body_size.y / 2 - 14 - bar_lift * 0.6)
+		_mute_fx.z_index = 6
+		var bg := Polygon2D.new()
+		bg.polygon = Util.circle(10.0, 14)
+		bg.color = Color(0.10, 0.08, 0.14, 0.85)
+		_mute_fx.add_child(bg)
+		var note := Label.new()
+		note.text = "♪"
+		note.add_theme_font_size_override("font_size", 16)
+		note.add_theme_color_override("font_color", Color(0.30, 0.90, 1.0))
+		note.position = Vector2(-6, -12)
+		_mute_fx.add_child(note)
+		var slash := Line2D.new()
+		slash.points = PackedVector2Array([Vector2(-8, 8), Vector2(8, -8)])
+		slash.width = 2.5
+		slash.default_color = Color(1.0, 0.30, 0.35)
+		_mute_fx.add_child(slash)
+		add_child(_mute_fx)
 
 
 # ----- Внешний вид ботов -----
@@ -1795,11 +2072,15 @@ func take_damage(amount: int, attacker = null) -> void:
 			attacker.take_damage(6)
 		return
 	a *= armor_mult
+	if mark_t > 0.0:
+		a *= mark_mult                           # «Сноска»: помеченный получает больше урона
 	if attacker != null and is_instance_valid(attacker) and attacker is Player:
 		a *= attacker.dmg_mult()                 # «Сила» у того, кто бьёт
 		a *= float(attacker.get_meta("bal_dmg", 1.0))          # баланс режима (Balance)
 		if stagger_max > 0.0:
 			a *= float(attacker.get_meta("boss_dmg", 1.0))     # по боссам Арены
+			if not attacker.run.is_empty():
+				a *= RunShop.boss_mult(attacker)
 		if front_armor > 0.0 and _stun_t <= 0.0:
 			var side := signf(attacker.global_position.x - global_position.x)
 			if side == facing or side == 0.0:
@@ -1809,10 +2090,16 @@ func take_damage(amount: int, attacker = null) -> void:
 			var side2 := signf(attacker.global_position.x - global_position.x)
 			if side2 == -facing:
 				a *= back_mult                   # удар в спину (котёл буровой машины)
+		if front_mult != 1.0:
+			var side3 := signf(attacker.global_position.x - global_position.x)
+			if side3 == facing or side3 == 0.0:
+				a *= front_mult                  # удар в открытое ядро
 	if _stun_t > 0.0 and _freeze_t <= 0.0:
 		a *= stun_mult
 	if has_buff("armor"):
 		a *= 0.0 if is_mega("armor") else 0.5    # «Броня» у того, кого бьют
+	if not run.is_empty():
+		a *= RunShop.armor_mult(self)
 	amount = int(round(a))
 	if amount <= 0:
 		return
@@ -1836,12 +2123,22 @@ func take_damage(amount: int, attacker = null) -> void:
 			stagger = 0.0
 			_stagger_cd = Balance.STAGGER_COOLDOWN
 			stun(Balance.STAGGER_STUN)
+			Audio.sfx("stun", global_position)
 			_float_label("ОГЛУШЁН! урон ×%s" % str(stun_mult).trim_suffix(".0"), Color(1.0, 0.85, 0.3))
 	hp -= amount
+	Audio.hurt(self, amount)
+	if attacker != null and is_instance_valid(attacker) and attacker is Player and attacker != self \
+			and int(attacker.run.get("vamp", 0)) > 0:
+		attacker._vamp += amount * 0.02 * int(attacker.run["vamp"])
+		if attacker._vamp >= 1.0:
+			attacker.heal(int(attacker._vamp))
+			attacker._vamp -= int(attacker._vamp)
 	if on_hurt.is_valid():
 		on_hurt.call(amount, attacker)
 	if rig:
 		rig.hurt()
+	if attacker != null and is_instance_valid(attacker) and attacker is Player and attacker != self and attacker.kit != null:
+		_hit_juice(amount, attacker)
 	if attacker != null and is_instance_valid(attacker) and attacker != self \
 			and attacker.has_method("add_ult"):
 		attacker.add_ult(float(amount))
@@ -1854,6 +2151,23 @@ func take_damage(amount: int, attacker = null) -> void:
 			_hp_fill.size.x = _bar_w * maxi(hp, 0) / max_hp
 			return
 		_die()
+
+# Попадание легенды по врагу видно и чувствуется: вспышка в цвете легенды, искры, а сильный
+# удар — ещё и маленькая ударная волна с толчком камеры (не чаще раза в 0,08 с на одного врага)
+var _juice_ms := 0
+func _hit_juice(amount: int, attacker: Player) -> void:
+	var now := Time.get_ticks_msec()
+	if amount < 4 or now - _juice_ms < 80 or not is_inside_tree():
+		return                                             # тики яда и огня — без вспышек
+	_juice_ms = now
+	var world := get_parent()
+	var c: Color = attacker.color.lightened(0.35)
+	var at := hurt_center() + Vector2(randf_range(-6, 6), randf_range(-8, 8))
+	Fx.star(world, at, clampf(10.0 + amount * 0.6, 12.0, 34.0), Color(1, 1, 1, 0.9), 0.16)
+	Fx.sparks(world, at, c, clampi(1 + amount / 8, 1, 4), 200.0, 3.0)
+	if amount >= 28:
+		Fx.ring(world, at, 46.0 + amount * 0.5, Color(c, 0.85), 0.25, 5.0)
+		Fx.shake(world, 2.5)
 
 # Корка (самоцветная от Гранильщика, кристальная броня Призмы): принимает урон вместо героя
 func give_crust(amount: float, time: float, burst := false) -> void:
@@ -1940,9 +2254,14 @@ func _die() -> void:
 	_para = 0
 	_col.set_deferred("disabled", true)
 	_stun_t = 0.0
+	glitch_t = 0.0
+	mute(0.0)
 	_charging = 0.0
 	_slow_t = 0.0
 	_pounce_t = 0.0
+	_retreat_t = 0.0
+	_bite_wind = 0.0
+	_bites_left = 2
 	_root_t = 0.0
 	_no_jump_t = 0.0
 	_poison_t = 0.0
@@ -1961,6 +2280,7 @@ func _die() -> void:
 		_mud_fx.visible = false
 	if _stun_fx:
 		_stun_fx.visible = false
+	Audio.death(self)
 	_death_burst()
 	died.emit(index)
 	if respawn and not stay_dead:
@@ -1973,6 +2293,7 @@ func _immune_flash() -> void:
 	if _immune_fx > 0.0:
 		return
 	_immune_fx = 0.15
+	Audio.sfx("clank", global_position)
 	Util.flash(get_parent(), global_position + Vector2(facing * body_size.x * 0.4, 0), 18.0, Color(0.8, 0.8, 0.9, 0.8))
 	_after(0.15, func(): _immune_fx = 0.0)
 
@@ -2153,6 +2474,8 @@ func _tick_buffs(delta: float) -> void:
 # Множитель урона («Сила»)
 func dmg_mult() -> float:
 	var m := bonus_mult if _bonus_t > 0.0 else 1.0
+	if not run.is_empty():
+		m *= RunShop.dmg_mult(self)
 	if not has_buff("damage"):
 		return m
 	return m * (2.5 if is_mega("damage") else 1.5)
@@ -2170,6 +2493,8 @@ func _cd_speed() -> float:
 		k = Buffs.CD_SPEED
 	if is_mega("boost"):
 		k *= Buffs.BOOST_CD
+	if not run.is_empty():
+		k *= RunShop.cd_mult(self)
 	return k
 
 # МЕГА-«Броня»: пузырь вокруг героя ранит ботов, которые его касаются

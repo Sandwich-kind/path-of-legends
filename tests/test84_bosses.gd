@@ -34,7 +34,7 @@ func _physics_process(_d: float) -> bool:
 		if lt == 60 * 22: b.hp = int(b.max_hp * 0.6)
 		if lt == 60 * 32: b.hp = int(b.max_hp * 0.3)
 	if lt in [60 * 12, 60 * 15, 60 * 18, 60 * 21, 60 * 25, 60 * 29, 60 * 34, 60 * 38]:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/boss%d_%d.png" % [waves[wi], lt / 60])
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/boss%d_%d.png" % [waves[wi], lt / 60])
 	if lt == 60 * (24 if waves[wi] == 10 else 40):
 		if wi + 1 >= waves.size(): return true
 		_next()

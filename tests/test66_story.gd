@@ -22,7 +22,7 @@ func snap(name: String) -> void:
 	if shots == "":
 		return
 	var img := root.get_viewport().get_texture().get_image()
-	img.save_png(shots + "/" + name + ".png")
+	if img: img.save_png(shots + "/" + name + ".png")
 
 func _process(_d: float) -> bool:
 	f += 1

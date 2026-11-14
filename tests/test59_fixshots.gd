@@ -10,7 +10,7 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 func shot(name: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
 func press(a: String, n: int) -> void:
 	Input.action_press(a)
 	held[a] = f + n

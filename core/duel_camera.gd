@@ -5,6 +5,7 @@ extends Camera2D
 #   follow = true  — держит обоих игроков в кадре: сходятся — приближает,
 #                    расходятся — отдаляет. За стены и под пол не заглядывает.
 # Нижняя часть экрана занята панелью кнопок, камера это учитывает.
+# На больших картах дальше min_zoom не отдаляет — там экран делится (SplitView).
 
 var targets: Array = []
 var bounds := Rect2(0, 0, Config.W, Config.H)   # границы карты
@@ -21,27 +22,49 @@ var _first := true
 func _ready() -> void:
 	make_current()
 
-func _process(delta: float) -> void:
+# Видимая часть экрана над панелью кнопок
+func play_size() -> Vector2:
 	var vs := get_viewport_rect().size
-	var play := Vector2(vs.x, vs.y - Config.panel())   # видимая часть над панелью
+	return Vector2(vs.x, vs.y - Config.panel())
+
+# Рамка вокруг живых игроков с запасом (пустая — если живых нет)
+func _targets_box() -> Rect2:
+	var box := Rect2()
+	var any := false
+	for t in targets:
+		if is_instance_valid(t) and t.is_alive():
+			if not any:
+				box = Rect2(t.global_position, Vector2.ZERO)
+				any = true
+			else:
+				box = box.expand(t.global_position)
+	if not any:
+		return Rect2()
+	return box.grow_individual(margin.x, margin.y * 1.3, margin.x, margin.y * 0.5)
+
+# Какое приближение нужно, чтобы оба игрока поместились в кадр (без ограничений)
+func fit_zoom() -> float:
+	var box := _targets_box()
+	if box.size == Vector2.ZERO:
+		return max_zoom
+	var play := play_size()
+	return minf(play.x / box.size.x, play.y / box.size.y)
+
+# Точка мира в центре видимой части экрана (над панелью)
+func view_center() -> Vector2:
+	return position - Vector2(0, Config.panel() / 2.0 / zoom.x)
+
+func _process(delta: float) -> void:
+	var play := play_size()
 	var want_center: Vector2
 	var want_z: float
 	if not follow:
 		want_center = bounds.get_center()
 		want_z = minf(play.x / bounds.size.x, play.y / bounds.size.y)
 	else:
-		var box := Rect2()
-		var any := false
-		for t in targets:
-			if is_instance_valid(t) and t.is_alive():
-				if not any:
-					box = Rect2(t.global_position, Vector2.ZERO)
-					any = true
-				else:
-					box = box.expand(t.global_position)
-		if not any:
+		var box := _targets_box()
+		if box.size == Vector2.ZERO:
 			return
-		box = box.grow_individual(margin.x, margin.y * 1.3, margin.x, margin.y * 0.5)
 		want_center = box.get_center()
 		want_z = minf(minf(play.x / box.size.x, play.y / box.size.y), max_zoom)
 		# дальше, чем помещается карта по ширине, не отдаляет

@@ -16,12 +16,22 @@ extends Node
 #   Волны 61–65 — Ледяная тропа, на 65-й мини-босс Ётун Стужа;
 #   Волны 66–70 — Храм шторма, на 70-й босс Громовник, Владыка Бури;
 #   Волны 71–75 — Лавовые просторы, на 75-й мини-босс Цербер;
-#   Волны 76–80 — Тронный зал Тёмного лорда, на 80-й — сам Тёмный Лорд.
+#   Волны 76–80 — Тронный зал Тёмного лорда, на 80-й — сам Тёмный Лорд;
+#   Волны 81–85 — Летающие острова, свита Странника, на 85-й мини-босс Пустокрыл;
+#   Волны 86–90 — Окраина деревни в огне, на 90-й босс Предвестник;
+#   Волны 91–95 — Ветряные холмы (бездна уже вторгается), на 95-й мини-босс Мельник Жернов;
+#   Волны 96–100 — Дворец Бездны: 96–97 обычные, после 97-й дворец пробуждается и меняется
+#                 на глазах, на 98-й мини-босс Палач Бездны, на 99-й — Ткачиха Разлома,
+#                 на 100-й — сам Странник (пять фаз, бой уходит в Зал Бездны и на Изнанку).
+# Режимы (rules): "normal" — 100 волн; "hard" — сложный (после победы на 100-й волне):
+# враги сильнее и с особенностями, у боссов новые приёмы и фазы (HardMode); "rush" —
+# Босс-раш: только волны с боссами и мини-боссами, по порядку.
 # У каждой локации (кроме первых двух) своя механика: лианы в джунглях, камнепад
 # и шипы в пещерах, ящики с порохом и батуты в шахте, катапульты в Колизее,
 # корни-ловушки в Жутком лесу, трясина, газ и тонущие брёвна на Болоте,
 # наледь и сосульки на Ледяной тропе, ветер и громоотводы в Храме шторма,
-# лава и вулканические бомбы на Лавовых просторах, люстры и пламя бездны в Тронном зале.
+# лава и вулканические бомбы на Лавовых просторах, люстры и пламя бездны в Тронном зале,
+# восходящие потоки и плавучие плиты на Летающих островах, пылающие балки в горящей деревне.
 # Перед каждым боссом — кат-сцена его появления. В начале — герой поднимается
 # на арену из подвала на деревянном подъёмнике.
 # После каждой пройденной волны: золото и сохранение (можно продолжить позже
@@ -29,17 +39,24 @@ extends Node
 
 signal finished(victory: bool, waves_done: int, gold: int)
 
-const TOTAL_WAVES := 80
+const TOTAL_WAVES := 100
 const STAGE_NAMES := ["Лесная тропа", "Окраина деревни", "Джунгли", "Ночные джунгли", "Пещеры", "Царство скелетов",
 		"Драгоценные пещеры", "Кристальные пещеры", "Колизей", "Ночной Колизей", "Жуткий лес", "Болото",
-		"Ледяная тропа", "Храм шторма", "Лавовые просторы", "Тронный зал"]
+		"Ледяная тропа", "Храм шторма", "Лавовые просторы", "Тронный зал", "Вершина цитадели",
+		"Летающие острова", "Деревня в огне", "Ветряные холмы", "Дворец Бездны", "Сердце Бездны"]
+const HARD_WAVES := 103           # в сложном режиме после Странника — ещё три боя (101–103)
 const LIVES_SOLO := 3
 const LIVES_COOP := 5            # вдвоём жизни общие
 const SPAWN_INTERVAL := 1.5      # пауза между выходами ботов
 const MAX_ALIVE := 6             # больше одновременно на арене не бывает (без призванных)
+const MAX_ALIVE_COOP := 8        # вдвоём — тесноватее
 const MAX_SUMMONED := 10
+const SUMMON_HP := 0.6             # подмога босса — «мясо»: здоровья меньше, чем у таких же врагов волны
 const BREAK_TIME := 3.0          # пауза между волнами
 const COOP_HP := 1.4             # вдвоём враги прочнее
+const COOP_BOSS_HP := 1.6        # …а боссы и мини-боссы — ещё прочнее
+const COOP_EXTRA := 0.25         # вдвоём в обычной волне на столько больше врагов (доля)
+const COOP_TEMPO := 1.15         # вдвоём боссы чаще пускают способности
 
 var world: Node2D
 var hud: Hud
@@ -52,6 +69,11 @@ var wave := 0
 var lives := LIVES_SOLO
 var kills := 0
 var gold_earned := 0
+var shop_visit := 0               # сколько раз заходили в Магазин (после 10-й, 20-й… волны)
+var _slots: Array = []
+var _shop_next := -1              # куда идём из Магазина
+var boss_tip := ""                # как победить текущего босса — в паузе и бестиарии
+var _regen := [0.0, 0.0]
 var info := {}
 var stage := -1
 var _queue: Array = []
@@ -70,12 +92,85 @@ var _totems: Array = []
 var _hold := 0.0                  # после гибели босса волна «закрывается» не сразу — пусть доиграет сцена
 var place_name := ""              # своё название места (бой с Лордом уходит на вершину цитадели)
 var stage_cam: Camera2D           # неподвижная камера на всю арену (третья фаза Лорда)
+var rules := "normal"             # "normal", "hard" (сложный), "rush" и "hard_rush" (Босс-раш обычный / сложный)
+
+func is_rush() -> bool:
+	return rules.ends_with("rush")
+
+func is_hard() -> bool:
+	return rules.begins_with("hard")
 
 func _mode_key() -> String:
-	return "coop" if coop else "solo"
+	return key_for(rules, coop)
 
+# Ключ сохранения: обычный режим — как раньше ("solo"/"coop"), остальные — с приставкой
+static func key_for(r: String, is_coop: bool) -> String:
+	var k := "coop" if is_coop else "solo"
+	return k if r == "normal" else r + "_" + k
+
+# Босс-раш: волны, на которых выходит босс или мини-босс (по порядку)
+static func rush_waves(hard := false) -> Array:
+	var res: Array = []
+	for i in max_wave(hard):
+		for k in Bots.WAVES[i]:
+			if Bots.is_boss(k):
+				res.append(i + 1)
+				break
+	return res
+
+static func first_rush_wave() -> int:
+	return rush_waves()[0]
+
+# Ближайшая волна с боссом от w (dir < 0 — назад)
+static func rush_wave_from(w: int, dir := 1, hard := false) -> int:
+	var rw := rush_waves(hard)
+	if dir < 0:
+		for i in range(rw.size() - 1, -1, -1):
+			if rw[i] <= w:
+				return rw[i]
+		return rw[0]
+	for x in rw:
+		if x >= w:
+			return x
+	return rw[rw.size() - 1]
+
+# Номер следующей волны (в Босс-раше — следующий бой с боссом); > TOTAL_WAVES — всё пройдено
+func _upcoming() -> int:
+	if not is_rush():
+		return wave + 1
+	for x in rush_waves(is_hard()):
+		if x > wave:
+			return x
+	return total() + 1
+
+# На сколько «пробудился» Дворец Бездны к волне w: 0 — стоит, 1 — трещины, 2 — оторвался от земли
+static func palace_level(w: int) -> int:
+	return clampi(w - 97, 0, 2)
+
+# Этап 16 (вершина цитадели) — только посреди боя с Лордом, поэтому волны 81–85 — этап 17
 static func stage_for(w: int) -> int:
-	return clampi((w - 1) / 5, 0, 15)
+	if w > TOTAL_WAVES:
+		return 21                        # Сердце Бездны (только сложный режим)
+	var s := (w - 1) / 5
+	if s >= 16:
+		s += 1
+	return clampi(s, 0, 20)
+
+# Сердце Бездны (101–103): камера отъезжает — видно больше арены, есть где развернуться
+func _fit_zoom() -> void:
+	if not (_cam is Camera2D) or coop:
+		return
+	var c := _cam as Camera2D
+	if not has_meta("zoom0"):
+		set_meta("zoom0", c.zoom)
+	c.zoom = (get_meta("zoom0") as Vector2) * (0.82 if stage == 21 else 1.0)
+
+# Сколько волн в режиме: в сложном — 103
+static func max_wave(hard: bool) -> int:
+	return HARD_WAVES if hard else TOTAL_WAVES
+
+func total() -> int:
+	return max_wave(is_hard())
 
 func start() -> void:
 	add_to_group("persist")
@@ -107,6 +202,9 @@ func start() -> void:
 		world.add_child(p)
 		p.add_to_group("persist")
 		players.append(p)
+		var runs: Array = saved.get("run", []) if start_wave > 1 else []
+		if i < runs.size() and runs[i] is Dictionary:
+			RunShop.restore(p, runs[i])         # усиления из Магазина — как были
 	_build_lanterns()
 
 	# кнопки на экране
@@ -134,6 +232,7 @@ func start() -> void:
 	world.add_child(_cam)
 	_cam.add_to_group("persist")
 	_cam.make_current()
+	_fit_zoom()
 	if _cam is Camera2D and not coop:
 		_cam.reset_smoothing()
 
@@ -168,6 +267,7 @@ func start() -> void:
 # ---------- Арена ----------
 func _build_stage(s: int) -> void:
 	stage = s
+	Audio.stage(s)                     # своя музыка у каждой локации
 	match s:
 		0: info = ForestTrail.build(world)
 		1: info = VillageEdge.build(world)
@@ -181,7 +281,11 @@ func _build_stage(s: int) -> void:
 		9: info = Colosseum.build(world, 2, true)
 		10: info = EerieWoods.build(world, false)
 		11: info = EerieWoods.build(world, true)
+		19: info = AbyssStages.hills(world, clampi(_upcoming() - 91, 0, 4))
+		20: info = AbyssStages.palace(world, palace_level(_upcoming()))
+		21: info = AbyssStages.heart(world, clampi(_upcoming() - 101, 0, 2))
 		_: info = FarStages.build(world, s)
+	_fit_zoom()
 	for sp in info["spawners"]:
 		sp.picked.connect(_on_picked)
 	# жилы самоцветов: за выбитые камни — немного золота
@@ -208,6 +312,9 @@ func _rebuild(s: int) -> void:
 				n.queue_free()
 		_build_stage(s)
 		_build_lanterns()
+		place_name = ""                    # бой с Лордом уводил на вершину цитадели — теперь новое место
+		stage_cam = null
+		(_cam as Camera2D).make_current()
 		for i in players.size():
 			var p: Player = players[i]
 			p.position = info["center"] + Vector2((i * 2 - 1) * 70.0 if coop else 0.0, 0)
@@ -279,13 +386,20 @@ func adopt_boss(b: Player, old: Player) -> void:
 
 # ---------- Волны ----------
 func _next_wave() -> void:
-	if wave >= TOTAL_WAVES or _state == "over":
+	if _upcoming() > total() or _state == "over":
 		return
-	wave += 1
+	wave = _upcoming()
 	_queue = Bots.wave_list(wave)
+	_coop_extra()
+	if is_hard():
+		HardMode.extra_foes(self)
+	if stage == 19:
+		AbyssStages.hills_darken(world, info, clampi(wave - 91, 0, 4))    # бездна наступает с каждой волной
 	_state = "fight"
 	_spawn_t = 0.8
 	var boss_kinds := _queue.filter(func(k): return Bots.is_boss(k))
+	if wave == 101:
+		boss_kinds = ["council"]            # Совет Отрёкшихся: трое сразу (AbyssFinale)
 	if not boss_kinds.is_empty():
 		_queue = _queue.filter(func(k): return not Bots.is_boss(k))
 		_state = "cutscene"
@@ -297,6 +411,7 @@ func _next_wave() -> void:
 		else:
 			p.revive(info["center"])      # выбывший напарник возвращается
 	var boss_wave: bool = not boss_kinds.is_empty()
+	Audio.intensity((2 if wave % 10 == 0 or wave > TOTAL_WAVES else 1) if boss_wave else 0)    # на боссах музыка ярче
 	if boss_wave:
 		var big := wave % 10 == 0
 		hud.show_banner("Волна %d — %s!" % [wave, "БОСС" if big else "мини-босс"], Color(1.0, 0.4, 0.3))
@@ -326,7 +441,7 @@ func _process(delta: float) -> void:
 		_spawn_t -= delta
 		var regular := _alive.filter(func(b): return not b.has_meta("summoned")).size()
 		var in_scene := _cut_cam != null and is_instance_valid(_cut_cam)      # пока идёт сцена — новые не выходят
-		if _spawn_t <= 0.0 and not _queue.is_empty() and regular < MAX_ALIVE and not in_scene:
+		if _spawn_t <= 0.0 and not _queue.is_empty() and regular < (MAX_ALIVE_COOP if coop else MAX_ALIVE) and not in_scene:
 			_spawn_t = SPAWN_INTERVAL
 			_spawn(_queue.pop_front())
 		if _queue.is_empty() and _alive.is_empty() and _hold <= 0.0:
@@ -336,6 +451,9 @@ func _process(delta: float) -> void:
 	_keep_inside(delta)
 	_update_arrows()
 	_update_boss_bar()
+	_tick_regen(delta)
+	if _state == "shop":
+		_shop_tick()
 	hud.set_buffs(players[0].buffs)
 	if coop:
 		hud.set_buffs2(players[1].buffs)
@@ -377,7 +495,7 @@ func _spawn(kind: String) -> void:
 		hud.show_banner(Bots.TYPES[kind]["name"] + "!", Color(1.0, 0.3, 0.25))
 		_after(1.4, hud.hide_banner)
 		if Bots.TYPES[kind].has("hint"):
-			_after(1.5, hud.show_hint.bind(Bots.TYPES[kind]["hint"], 10.0))
+			_after(1.5, _boss_tip.bind(kind))
 		if kind == "treant":
 			_totem_wave = 0
 			b.invulnerable = true
@@ -389,7 +507,9 @@ func _make_bot(kind: String, pos: Vector2) -> Player:
 	b.calm_jumps = true                # на Арене боты реже скачут без дела
 	Save.see(kind)                     # запись в бестиарии открыта
 	if coop:
-		b.max_hp = int(b.max_hp * COOP_HP)
+		b.max_hp = int(b.max_hp * (COOP_BOSS_HP if Bots.is_boss(kind) else COOP_HP))
+		if Bots.is_boss(kind):
+			b.ab_tempo *= COOP_TEMPO
 	b.allies = func(): return _alive
 	b.summon = _summon
 	b.died.connect(_on_bot_died.bind(b))
@@ -400,6 +520,8 @@ func _make_bot(kind: String, pos: Vector2) -> Player:
 		b.ignore_one_way_platforms()       # огромные боссы не застревают в платформах
 	if kind != "totem":
 		_alive.append(b)
+	if is_hard():
+		HardMode.apply(self, b, kind)      # сложный режим: прочнее, злее, с особенностями
 	return b
 
 # Противник появляется прямо в точке (осколки раскола, отражения Ириды)
@@ -428,6 +550,8 @@ func _summon(kind: String, count: int, near: Vector2) -> void:
 		var pos := Vector2(x, info["floor"] - size.y / 2 - 4)
 		var b := _make_bot(kind, pos)
 		b.set_meta("summoned", true)
+		b.max_hp = maxi(1, int(b.max_hp * SUMMON_HP))
+		b.hp = b.max_hp
 		if kind.begins_with("shardling"):
 			b.set_meta("no_split", true)          # призванные осколки не раскалываются на мелочь
 		b.velocity = Vector2(0, -500)
@@ -452,18 +576,27 @@ func _on_bot_died(_index: int, b: Player) -> void:
 	if b.get_meta("kind") == "totem":
 		return
 	kills += 1
+	if b == _boss and b.has_meta("council"):
+		# Совет ещё стоит — полоска переходит к следующему, бой продолжается
+		for o in _alive:
+			if o != b and is_instance_valid(o) and o.has_meta("council") and o.is_alive():
+				_boss = o
+				break
 	_alive.erase(b)
 	if Bots.is_boss(b.get_meta("kind")) and b.get_meta("kind") != "totem":
 		if wave % 10 == 0 and b == _boss:
 			BossFx._slowmo(world, 0.35, 0.7)          # последний удар по главному боссу — замедленно
 		var corpse := BossFx.death(world, b)            # у каждого босса своя смерть
 		if b == _boss:
-			var final_boss: bool = b.get_meta("kind") == "dark_lord"
+			var final_boss: bool = b.get_meta("kind") in ["dark_lord", "harbinger", "abyss_lord"]
 			_hold = 4.4 if final_boss else 2.6
 			if corpse:
 				cinematic(corpse, 4.1 if final_boss else 2.3, true)    # камера показывает, как он погибает
 	if b == _boss:
 		_boss = null
+		_victory_guard(b, b.get_meta("kind") in ["dark_lord", "harbinger", "abyss_lord"])
+		Audio.intensity(0)
+		Audio.stinger("boss_down")
 		# победа над главным боссом открывает новую легенду
 		var bk: String = b.get_meta("kind")
 		if Save.unlock_hero(bk):
@@ -478,11 +611,72 @@ func _on_bot_died(_index: int, b: Player) -> void:
 		_totems.clear()
 	_update_hud()
 
+# Героев ничто не ранит t секунд (сцены посреди боя: Странник лечится и переносит бой)
+func shield_heroes(t: float) -> void:
+	for p in players:
+		if p.is_alive():
+			p.cutscene_shield = true
+	_after(t, func():
+		for p in players:
+			if is_instance_valid(p):
+				p.cutscene_shield = false)
+
+# Босс уходит сам, без гибели (Странник уходит в разлом): победа засчитывается
+func boss_departs(b: Player) -> void:
+	if not is_instance_valid(b):
+		return
+	_alive.erase(b)
+	kills += 1
+	if _boss == b:
+		_boss = null
+	_victory_guard(b, true)
+	_hold = 3.0
+	Audio.intensity(0)
+	Audio.stinger("boss_down")
+	var bk: String = b.get_meta("kind")
+	if Save.unlock_hero(bk):
+		for i in Characters.LIST.size():
+			if Characters.LIST[i].get("unlock", "") == bk:
+				hud.show_banner("Новая легенда: %s!" % Characters.LIST[i]["name"], Color(1.0, 0.85, 0.3))
+				_after(2.2, hud.hide_banner)
+	b.queue_free()
+	_update_hud()
+
+# Босс повержен: пока идёт сцена его гибели (и чуть после) героев ничто не ранит —
+# ни его затянувшиеся атаки, ни лава, ни яд. Вражеские снаряды гаснут, подмога
+# босса рассыпается вместе с ним. Победа засчитана, даже если герой стоял над лавой.
+const VICTORY_SHOTS := ["Bullet", "Spear", "Arrow", "Shell", "Shuriken", "Grenade", "BigShuriken", "Knife", "Mortar", "SkyBomb", "FallingBomb"]
+
+func _victory_guard(boss: Player, final_boss: bool) -> void:
+	var t := (4.4 if final_boss else 2.6) + 1.4
+	for p in players:
+		if p.is_alive():
+			p.cutscene_shield = true
+	_after(t, func():
+		for p in players:
+			if is_instance_valid(p):
+				p.cutscene_shield = false)
+	for n in world.get_children():
+		if n == boss or not is_instance_valid(n) or n.is_queued_for_deletion():
+			continue
+		if n is Player:
+			if n.team != 0 and n.has_meta("summoned") and n.is_alive():
+				Fx.sparks(world, n.global_position, Color(0.75, 0.7, 0.65), 8, 160.0, 4.0)
+				Util.flash(world, n.global_position, n.body_size.y * 0.6, Color(1, 1, 1, 0.6))
+				_alive.erase(n)
+				n.queue_free()
+			continue
+		var cls: String = n.get_script().get_global_name() if n.get_script() else ""
+		if cls in VICTORY_SHOTS and "team" in n and n.team != 0:
+			Util.flash(world, n.global_position, 16.0, Color(1, 1, 1, 0.5))
+			n.queue_free()
+	_update_hud()
+
 # ---------- Древний Энт и Тотемы жизни ----------
 # Тотемы вырастают за бой всего 3 раза: в начале — 1, когда у Энта останется
-# 2/3 здоровья — 3, а с 1/3 — 4. Пока стоит хоть один тотем, Энт неуязвим;
+# 2/3 здоровья — 2, а с 1/3 — 3. Пока стоит хоть один тотем, Энт неуязвим;
 # сломал все — бей Энта, пока он не дойдёт до следующего порога.
-const TOTEM_WAVES := [1, 2, 4]          # тотемы растут трижды: 1, потом 2, потом 4
+const TOTEM_WAVES := [1, 2, 3]          # тотемы растут трижды: 1, потом 2, потом 3
 const TOTEM_AT := [1.01, 0.67, 0.34]
 var _totem_wave := 0
 
@@ -495,7 +689,7 @@ func _grow_totems() -> void:
 	var cx := Colosseum.W / 2
 	spots.sort_custom(func(a, b): return absf(a.x - cx) < absf(b.x - cx))
 	var use: Array = spots.slice(0, count)
-	if count >= 4 and spots.size() > count:
+	if count >= 3 and spots.size() > count:
 		use = spots.slice(spots.size() - count)          # последние — по краям арены, побегать придётся
 	for sp in use:
 		var size: Vector2 = Bots.TYPES["totem"]["size"]
@@ -541,21 +735,66 @@ func _wave_cleared() -> void:
 				mname = m["name"]
 		_after(BREAK_TIME * 0.5, hud.show_hint.bind("Новая карта для Дуэли: «%s»!" % mname, 4.0))
 	var reward := Save.wave_reward(wave)
+	if is_hard():
+		reward = int(reward * HardMode.GOLD)
+	var lucky := 0
+	for p in players:
+		lucky = maxi(lucky, int(p.run.get("gold", 0)))
+	reward = int(round(reward * (1.0 + 0.15 * lucky)))          # «Счастливая монета» из Магазина
 	Save.add_gold(reward)
 	gold_earned += reward
 	hud.show_coins()
 	_float_text("+%d золотых" % reward, Color(1.0, 0.85, 0.3), _nearest(info["center"]).position)
-	if wave >= TOTAL_WAVES:
-		if Save.unlock_stage(16):          # победа над Лордом — его цитадель для Дуэли
-			_after(BREAK_TIME * 0.5, hud.show_hint.bind("Новая карта для Дуэли: «Цитадель во тьме»!", 4.0))
+	if wave == 80 and Save.unlock_stage(16):          # победа над Лордом — его цитадель для Дуэли
+		_after(BREAK_TIME * 0.5 + 4.5, hud.show_hint.bind("Новая карта для Дуэли: «Цитадель во тьме»!", 4.0))
+	if _upcoming() > total():
 		_state = "over"
 		Save.clear_arena_progress(_mode_key())
 		hud.show_banner("Победа!", Color(1.0, 0.85, 0.3))
-		_after(2.0, func(): finished.emit(true, wave, gold_earned))
+		var opened := ""
+		if rules == "normal" and Save.set_arena_done():
+			opened = "Открыты: сложный режим и Босс-раш!"
+		elif rules == "hard" and Save.set_hard_done():
+			opened = "Открыт сложный Босс-раш!"
+		if rules == "hard":
+			# прошли сложную Арену до конца: отметка «Чемпион» и чемпионский облик легенды
+			var champs: Array = []
+			for i in players.size():
+				var got_c := Skins.give_champion(chars[i])
+				if Save.mark_hard_hero(chars[i]) or got_c:
+					champs.append(Characters.LIST[chars[i]]["name"].capitalize())
+			if not champs.is_empty():
+				opened += ("\n" if opened != "" else "") + "Чемпион сложной Арены: " + ", ".join(champs) + " — чемпионский облик!"
+		if not is_rush():
+			# легенды, прошедшие Арену целиком, — их МЕГА-версии появляются в Лавке
+			var fresh: Array = []
+			for i in players.size():
+				var got_skin := Skins.give_abyss(chars[i])                 # облик «Бездна» этой легенды
+				if Save.mark_arena_hero(chars[i]) or got_skin:
+					fresh.append(Characters.LIST[chars[i]]["name"].capitalize())
+			if not fresh.is_empty():
+				opened += ("\n" if opened != "" else "") + "Облик «Бездна» и МЕГА в Лавке: " + ", ".join(fresh)
+		if opened != "":
+			_after(2.2, func():
+				hud.show_banner(opened, Color(1.0, 0.7, 1.0))
+				_after(2.6, hud.hide_banner))
+		_after(2.0 if opened == "" else 5.0, func(): finished.emit(true, wave, gold_earned))
 		return
-	Save.set_arena_progress(_mode_key(), wave + 1, chars.slice(0, players.size()), maxi(lives, 1))
-	hud.show_banner("Волна %d пройдена" % wave, Color(0.6, 1.0, 0.6))
-	var next_stage := stage_for(wave + 1)
+	Save.set_arena_progress(_mode_key(), _upcoming(), chars.slice(0, players.size()), maxi(lives, 1), _runs())
+	hud.show_banner("Волна %d пройдена" % wave if not is_rush() else "Бой %d из %d выигран" % [rush_waves(is_hard()).find(wave) + 1, rush_waves(is_hard()).size()],
+			Color(0.6, 1.0, 0.6))
+	if _shop_due():
+		_after(1.6, _enter_shop)                   # после каждой десятой волны — Магазин
+		return
+	_go_on()
+
+# Дальше в бой: новая арена (если этап сменился) или следующая волна здесь же
+func _go_on(from_shop := false) -> void:
+	var next_stage := stage_for(_upcoming())
+	if from_shop and next_stage == stage:
+		_after(0.2, _rebuild.bind(stage))           # из Магазина — обратно на ту же арену
+		_after(0.2 + BREAK_TIME, _next_wave)
+		return
 	if next_stage != stage:
 		var texts := ["", "Из-за деревьев поднимается дым… Бандиты напали на деревню!",
 				"Деревня спасена. Дорога ведёт дальше — в джунгли гоблинов!",
@@ -570,10 +809,22 @@ func _wave_cleared() -> void:
 				"За болотом — горы. Ночь, мороз, северное сияние… Ледяная тропа!",
 				"Над перевалом сгущаются тучи. Впереди — Храм шторма…",
 				"За храмом земля чернеет и дымится. Лавовые просторы!",
-				"Впереди цитадель Тёмного лорда. Ворота тронного зала открыты…"]
-		_after(1.4, hud.show_banner.bind(texts[next_stage]))
-		_after(2.4, _rebuild.bind(next_stage))
-		_after(2.4 + BREAK_TIME, _next_wave)
+				"Впереди цитадель Тёмного лорда. Ворота тронного зала открыты…",
+				"",
+				"Тёмный Лорд пал… но над летающими островами разорвалось небо. Пришёл кто-то другой.",
+				"Свита Странника спустилась к деревне. Окраина в огне!",
+				"Свита отступила за холмы… Над мирными полями треснуло небо — бездна уже здесь.",
+				"За холмами из земли поднялся чёрный дворец. Странник ждёт."]
+		var d0 := 0.6 if from_shop else 2.4          # из Магазина — сразу в путь
+		_after(0.05 if from_shop else 1.4, hud.show_banner.bind(texts[next_stage]))
+		_after(d0, _rebuild.bind(next_stage))
+		_after(d0 + BREAK_TIME, _next_wave)
+	elif stage == 20 and palace_level(_upcoming()) > int(info.get("level", 0)):
+		# Дворец Бездны пробуждается прямо на глазах (после 97-й и 98-й волн)
+		var lv := palace_level(_upcoming())
+		_after(1.2, func():
+			var d := AbyssScenes.palace_wakes(self, lv)
+			_after(d + 0.6, _next_wave))
 	else:
 		_after(BREAK_TIME, _next_wave)
 
@@ -597,7 +848,7 @@ func _on_player_died(index: int) -> void:
 	hud.show_banner("Поражение", Color(1.0, 0.35, 0.3))
 	# прогресс остаётся: можно продолжить с начала этой волны, жизни — заново
 	Save.set_arena_progress(_mode_key(), wave, chars.slice(0, players.size()),
-			LIVES_COOP if coop else LIVES_SOLO)
+			LIVES_COOP if coop else LIVES_SOLO, _runs())
 	for b in _alive:
 		if is_instance_valid(b):
 			b.frozen = true
@@ -633,15 +884,24 @@ func _update_hud() -> void:
 	var place: String = STAGE_NAMES[clampi(stage, 0, STAGE_NAMES.size() - 1)].replace("Ночные джунгли", "Джунгли").replace("Ночной Колизей", "Колизей")
 	if place_name != "":
 		place = place_name
-	hud.set_text("%s · Волна %d / %d" % [place, maxi(wave, 1), TOTAL_WAVES])
+	if is_rush():
+		var rw := rush_waves(is_hard())
+		hud.set_text("%sБосс-раш · %s · Бой %d / %d" % ["Сложный " if is_hard() else "", place, maxi(rw.find(maxi(wave, rw[0])) + 1, 1), rw.size()])
+	else:
+		hud.set_text("%s%s · Волна %d / %d" % ["Сложный · " if is_hard() else "", place, maxi(wave, 1), total()])
 	var left := _queue.size() + _alive.size()
-	hud.set_sub("Врагов: %d   ·   Жизни: %d%s   ·   Убито: %d" % [left, lives, " (общие)" if coop else "", kills])
+	if _state == "shop":
+		hud.set_text("Магазин · после волны %d" % wave)
+		hud.set_sub("")
+	else:
+		hud.set_sub("Врагов: %d   ·   Убито: %d" % [left, kills])
+	hud.set_lives(lives, coop)
 
 func _update_boss_bar() -> void:
 	if _boss != null and is_instance_valid(_boss) and _boss.is_alive():
 		var n: String = _boss.get_meta("title", Bots.TYPES[_boss.get_meta("kind")]["name"])
 		if _boss.invulnerable:
-			n += "  (неуязвим — сломай тотемы!)"
+			n += "  (неуязвим — сломай тотемы!)" if _boss.get_meta("kind") == "treant" else "  (неуязвим)"
 		elif _boss.get_meta("kind") == "treant" and _totem_wave < TOTEM_WAVES.size():
 			n += "  (уязвим — тотемы ещё вырастут)"
 		elif _boss.is_stunned():
@@ -1442,7 +1702,8 @@ func _boss_intro(kind: String) -> void:
 			_after(1.6, func():
 				_banner_text("Ты дошёл до моего трона…", Color(1.0, 0.45, 0.3)))
 			_after(2.7, func():
-				eyes.queue_free()
+				if is_instance_valid(eyes):
+					eyes.queue_free()
 				var at := Vector2(dx, floor_y)
 				FarAbilities._dark_smoke(world, at + Vector2(0, -size_d2.y * 0.5), size_d2)
 				var pil := FarAbilities.FirePillar.new()
@@ -1465,6 +1726,21 @@ func _boss_intro(kind: String) -> void:
 						b.rig.play("roar")
 					Fx.sparks(world, Vector2(dx, floor_y - size_d2.y * 0.6), Color(1.0, 0.5, 0.2), 20, 300.0, 5.0)
 					_name_card(kind, "", "ПОВЕЛИТЕЛЬ ТЬМЫ")))
+		"voidwing", "harbinger":
+			# свита Странника — сцены в RiftScenes
+			var sc: Array = RiftScenes.intro(self, kind)
+			focus = sc[0]
+			dur = sc[1]
+		"council", "abyss_lord", "mad_wanderer":
+			# сложная Арена, 101–103 — сцены в AbyssFinale
+			var sc3: Array = AbyssFinale.intro(self, kind)
+			focus = sc3[0]
+			dur = sc3[1]
+		"mill_giant", "void_shepherd", "abyss_headsman", "rift_weaver", "wanderer":
+			# последние земли — сцены в AbyssScenes
+			var sc2: Array = AbyssScenes.intro(self, kind)
+			focus = sc2[0]
+			dur = sc2[1]
 		_:
 			# запасной вариант: босс просто выходит в центре
 			_after(1.0, func():
@@ -1492,6 +1768,7 @@ func _queen_drop(y: float, b: Player, thread: Line2D, x: float) -> void:
 
 func _make_boss(kind: String, pos: Vector2) -> Player:
 	var b := _make_bot(kind, pos)
+	_unstick(b)
 	b.frozen = true
 	b.cutscene_shield = true             # пока идёт кат-сцена — неуязвим, призванные его не трогают
 	_boss = b
@@ -1501,6 +1778,16 @@ func _make_boss(kind: String, pos: Vector2) -> Player:
 		_grow_totems()
 	return b
 
+# Босс не должен появиться внутри препятствия (иначе его выталкивает наверх и он застревает:
+# Король скелетов у трона в Босс-раше, когда блоки зала ещё целы)
+func _unstick(b: Player) -> void:
+	var base := b.global_position
+	for k in [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 8, -8]:
+		var pos := Vector2(clampf(base.x + k * 70.0, Colosseum.WALL + 60.0, Colosseum.W - Colosseum.WALL - 60.0), base.y)
+		if not b.test_move(Transform2D(0.0, pos), Vector2(0, -2)):
+			b.global_position = pos
+			return
+
 # Короткая надпись посреди сцены (реплика босса)
 func _banner_text(text: String, c: Color) -> void:
 	hud.show_banner(text, c)
@@ -1508,6 +1795,7 @@ func _banner_text(text: String, c: Color) -> void:
 
 # Табличка с именем босса
 func _name_card(kind: String, title := "", sub_text := "") -> void:
+	Audio.boss_intro(kind)
 	var layer := CanvasLayer.new()
 	layer.layer = 8
 	world.add_child(layer)
@@ -1571,7 +1859,7 @@ func _end_intro() -> void:
 			_boss.cutscene_walk = 0.0
 			var kind: String = _boss.get_meta("kind")
 			if Bots.TYPES[kind].has("hint"):
-				hud.show_hint(Bots.TYPES[kind]["hint"], 10.0)
+				_boss_tip(kind)
 		_state = "fight"
 		_spawn_t = 1.5)
 
@@ -1697,3 +1985,152 @@ func _update_king() -> void:
 		hud.show_banner("Стража, ко мне!", Color(0.8, 0.6, 1.0))
 		_after(1.4, hud.hide_banner)
 		_summon("skel_sword", 3, _boss.global_position)
+
+# ---------- Вдвоём: волна чуть больше ----------
+# К обычной волне добавляются ещё враги тех же видов (доля COOP_EXTRA, с округлением вверх).
+func _coop_extra() -> void:
+	if not coop or COOP_EXTRA <= 0.0:
+		return
+	var regular := _queue.filter(func(k): return not Bots.is_boss(k))
+	if regular.is_empty():
+		return
+	var add := ceili(regular.size() * COOP_EXTRA)
+	var extra: Array = []
+	for i in add:
+		extra.append(regular[randi() % regular.size()])
+	var bosses := _queue.filter(func(k): return Bots.is_boss(k))
+	var all := regular + extra
+	all.shuffle()
+	_queue = all + bosses
+
+# ---------- Магазин между волнами (RunShop) ----------
+func _runs() -> Array:
+	return players.map(func(p): return (p.run as Dictionary).duplicate())
+
+func _shop_due() -> bool:
+	return not is_rush() and wave >= 10 and wave % 10 == 0 and _upcoming() <= total()
+
+func _enter_shop() -> void:
+	if _state == "over":
+		return
+	_state = "shop"
+	shop_visit = wave / 10
+	hud.hide_boss()
+	hud.hide_hint()
+	hud.hide_tip()
+	boss_tip = ""
+	Audio.intensity(0)
+	var t := create_tween()
+	t.tween_property(_fade, "color:a", 1.0, 0.5)
+	t.tween_callback(func():
+		for n in world.get_children():
+			if not n.is_in_group("persist"):
+				world.remove_child(n)
+				n.queue_free()
+		info = RunShop.Stop.build(world)
+		_build_lanterns()
+		place_name = ""
+		stage_cam = null
+		(_cam as Camera2D).make_current()
+		_slots.clear()
+		var xs: Array = info["slots_x"]
+		for k in xs.size():
+			var s := RunShop.Slot.new()
+			s.kind = "buff"
+			s.id = RunShop.roll()
+			s.visit = shop_visit
+			s.position = Vector2(xs[k], info["floor"])
+			world.add_child(s)
+			_slots.append(s)
+		var life := RunShop.Slot.new()
+		life.kind = "life"
+		life.visit = shop_visit
+		life.position = Vector2(info["life_x"], info["floor"])
+		world.add_child(life)
+		_slots.append(life)
+		for i in players.size():
+			var p: Player = players[i]
+			if not p.is_alive():
+				p.revive(info["center"])
+			p.heal_full()
+			p.position = info["center"] + Vector2((i * 2 - 1) * 70.0 if coop else 0.0, 0)
+			p.velocity = Vector2.ZERO
+		if _cam is Camera2D and not coop:
+			_cam.reset_smoothing()
+		_update_hud())
+	t.tween_property(_fade, "color:a", 0.0, 0.6)
+	t.tween_callback(func():
+		hud.show_banner("Магазин", Color(1.0, 0.85, 0.45))
+		_after(1.4, hud.hide_banner)
+		hud.show_hint("Подойди к прилавку и нажми атаку — купишь усиление до конца Арены. Дверь справа — дальше в бой.", 6.0))
+
+func _shop_tick() -> void:
+	if _slots.is_empty() or not info.get("shop", false):
+		return
+	for s in _slots:
+		if is_instance_valid(s):
+			s.set_near(false, true)
+	var at_door := 0
+	var alive := 0
+	for p in players:
+		if not p.is_alive():
+			continue
+		alive += 1
+		p._cooldown_left = maxf(p._cooldown_left, 0.2)        # в Магазине не стреляют
+		var feet: Vector2 = p.global_position + Vector2(0, p.body_size.y / 2)
+		if absf(feet.x - float(info["door_x"])) < 80.0:
+			at_door += 1
+		for s in _slots:
+			if not is_instance_valid(s) or s.sold:
+				continue
+			if absf(feet.x - s.global_position.x) < 46.0 and absf(feet.y - s.global_position.y) < 40.0:
+				var can: Variant = Save.gold() >= s.price()
+				s.set_near(true, can)
+				if not p.is_bot and Input.is_action_just_pressed(p.prefix + "_shoot"):
+					_buy(p, s)
+	if alive > 0 and at_door == alive:
+		_leave_shop()
+
+func _buy(p: Player, s: RunShop.Slot) -> void:
+	var cost: int = s.price()
+	if Save.gold() < cost:
+		p._float_label("Не хватает монет", Color(1.0, 0.5, 0.45))
+		return
+	Save.add_gold(-cost)
+	hud.show_coins()
+	if s.kind == "life":
+		lives += 1
+		p._float_label("+1 жизнь", Color(1.0, 0.45, 0.5))
+	else:
+		RunShop.apply(p, s.id)
+		p._float_label(RunShop.POOL[s.id]["short"], RunShop.POOL[s.id]["col"])
+	s.bought()
+	_update_hud()
+
+func _leave_shop() -> void:
+	_slots.clear()
+	_state = "break"
+	Save.set_arena_progress(_mode_key(), _upcoming(), chars.slice(0, players.size()), maxi(lives, 1), _runs())
+	_go_on(true)
+
+# «Второе дыхание»: лечение каждую секунду
+func _tick_regen(delta: float) -> void:
+	for i in players.size():
+		var p: Player = players[i]
+		var n := int(p.run.get("regen", 0))
+		if n <= 0 or not p.is_alive() or p.hp >= p.max_hp:
+			continue
+		_regen[i] += delta * n
+		if _regen[i] >= 1.0:
+			p.heal(int(_regen[i]))
+			_regen[i] -= int(_regen[i])
+
+# Как победить босса: на экране — одна короткая строка, целиком — в паузе и бестиарии
+func _boss_tip(kind: String) -> void:
+	boss_tip = String(Bots.TYPES[kind].get("hint", ""))
+	if boss_tip == "":
+		return
+	var first := boss_tip.split(". ")[0].split("! ")[0]
+	if first.length() > 70:
+		first = first.substr(0, 68) + "…"
+	hud.show_tip(first)

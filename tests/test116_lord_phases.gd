@@ -19,7 +19,7 @@ func _initialize() -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png(shots + "%s.png" % n)
+		if img: img.save_png(shots + "%s.png" % n)
 
 func _physics_process(_d: float) -> bool:
 	f += 1

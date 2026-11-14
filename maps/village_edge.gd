@@ -16,8 +16,9 @@ const HAY := Color(0.86, 0.72, 0.36)
 const WOOD := Color(0.52, 0.38, 0.22)
 const STONE := Color(0.55, 0.53, 0.50)
 
-static func build(world: Node) -> Dictionary:
-	var img := LandArt.village_backdrop(W, FLOOR_Y)
+# burning — та же окраина на волнах 86–90: багровое небо, деревня горит (см. BurningVillage)
+static func build(world: Node, burning := false) -> Dictionary:
+	var img := RiftArt.burning_village_backdrop(W, FLOOR_Y) if burning else LandArt.village_backdrop(W, FLOOR_Y)
 	var bg := PixelArt.make_sprite(img, PixelArt.SCALE)
 	bg.z_index = -10
 	world.add_child(bg)
@@ -37,15 +38,18 @@ static func build(world: Node) -> Dictionary:
 	var gates := [Vector2(WALL + 70, FLOOR_Y), Vector2(W - WALL - 70, FLOOR_Y)]
 	_gate(world, gates[0])
 	ForestTrail._thicket(world, gates[1])
-	# фонари на столбах — днём не горят
+	# фонари на столбах — днём не горят (в горящей деревне — горят)
 	for x in [380.0, 1300.0, W - 380.0]:
 		var t := Torch.new()
 		t.position = Vector2(x, FLOOR_Y - 260.0)
-		t.lit = false
+		t.lit = burning
 		world.add_child(t)
 	var sp := _obstacles(world)
-	return {"size": Vector2(W, H), "center": Vector2(W / 2, FLOOR_Y - 32), "gates": gates,
+	var info := {"size": Vector2(W, H), "center": Vector2(W / 2, FLOOR_Y - 32), "gates": gates,
 			"glow": null, "floor": FLOOR_Y, "spawners": sp, "totems": []}
+	if burning:
+		BurningVillage.dress(world, info)
+	return info
 
 # Ворота в частоколе: из них выбегают бандиты, уже побывавшие в деревне
 static func _gate(world: Node, base: Vector2) -> void:
@@ -154,13 +158,24 @@ static func _obstacles(world: Node) -> Array:
 		sp.append(Colosseum._ledge(world, x0 + side * 20, STEP * 3, 160.0))
 	_well(world, c - 340.0)
 	_cart(world, c + 330.0)
-	_hay(world, c, 120.0, 60.0)
-	# сторожевая вышка в центре
-	for sx in [-110.0, 100.0]:
+	# сторожевая вышка в центре. Герои появляются прямо под ней, поэтому столбы —
+	# на заднем плане (сквозь них проходят), стог сена — сбоку, а между полом и
+	# площадкой вышки есть ступенька: наверх можно запрыгнуть без лестниц.
+	_hay(world, c - 200.0, 80.0, 60.0)
+	for sx in [-120.0, 100.0]:
 		var post := Maps.make_destructible(Rect2(c + sx, f - STEP * 2, 20, STEP * 2), 20.0, WOOD.darkened(0.1), 70, 30.0)
 		post.anchored = true
+		post.background = true
 		post.anchors.append(Vector2i(0, post.rows - 1))
 		world.add_child(post)
+	for k in 3:                                   # перекладины-лесенка между столбами (фон)
+		var rung := ColorRect.new()
+		rung.color = WOOD.darkened(0.35)
+		rung.position = Vector2(c - 110, f - 60 - k * 60)
+		rung.size = Vector2(220, 6)
+		rung.z_index = -4
+		world.add_child(rung)
+	ForestTrail.wood_plat(world, Rect2(c - 80, f - STEP, 160, 20))
 	ForestTrail.wood_plat(world, Rect2(c - 130, f - STEP * 2, 260, 20))
 	ForestTrail.wood_plat(world, Rect2(c - 100, f - STEP * 3, 200, 20))
 	sp.append(Colosseum._ledge(world, c, STEP * 4, 160.0))

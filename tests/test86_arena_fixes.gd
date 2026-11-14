@@ -24,7 +24,7 @@ func start(w: int, hero: int) -> void:
 func totems() -> Array:
 	return arena._totems.filter(func(t): return is_instance_valid(t) and t.is_alive())
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png(shots + n + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + n + ".png")
 func _physics_process(_d: float) -> bool:
 	f += 1
 	if f == 3:

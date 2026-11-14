@@ -3,7 +3,7 @@ class_name HeroFigure
 
 # bottom — точка, где у героя ноги; k — во сколько раз крупнее; face — куда смотрит
 static func draw(parent: Node, bottom: Vector2, k: float, char_idx: int, outline := Color(0, 0, 0, 0),
-		face := 1, locked := false) -> Control:
+		face := 1, locked := false, skin := "-") -> Control:
 	var ch: Dictionary = Characters.LIST[char_idx]
 	var size := Player.SIZE * k
 	var root := Control.new()
@@ -20,7 +20,12 @@ static func draw(parent: Node, bottom: Vector2, k: float, char_idx: int, outline
 		rig.kind = ch["rig"]
 		rig.size = Player.SIZE
 		rig.puppet_facing = face
+		var sk := Skins.selected(char_idx) if skin == "-" else skin      # облик: выбранный или заданный
+		if sk != "" and not locked:
+			rig.custom_spec = Skins.spec(ch["rig"], sk)
 		holder.add_child(rig)
+		if sk != "" and not locked:
+			Skins.decorate(rig, sk)
 		if outline.a > 0.0 and not locked:
 			var m := Polygon2D.new()
 			m.polygon = PackedVector2Array([Vector2(-9, 0), Vector2(9, 0), Vector2(0, 11)])

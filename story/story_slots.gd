@@ -44,6 +44,14 @@ func _ready() -> void:
 	_build()
 
 static func backdrop(layer: CanvasLayer, vs: Vector2) -> void:
+	if MenuScene.reveal():
+		# под экраном — та же живая заставка, что и в главном меню
+		var dim := ColorRect.new()
+		dim.color = Color(0.05, 0.03, 0.02, 0.5)
+		dim.size = vs
+		dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(dim)
+		return
 	var img := PixelArt.title_landscape()
 	var k := maxf(vs.x / img.get_width(), vs.y / img.get_height())
 	var bg := PixelArt.make_sprite(img, k)

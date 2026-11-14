@@ -17,8 +17,8 @@ func _physics_process(_d: float) -> bool:
 		var p: Player = main.duel_players[0]
 		Util.explode(main.world, p.global_position + Vector2(260, -40), 120.0, 0, 40, 5, null)
 	if f == 140:
-		root.get_viewport().get_texture().get_image().save_png("res://tests/shots/dmg1.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/dmg1.png")
 	if f == 200:
-		root.get_viewport().get_texture().get_image().save_png("res://tests/shots/dmg2.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/dmg2.png")
 		return true
 	return false

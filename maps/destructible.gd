@@ -282,6 +282,7 @@ func _finish_removal(removed: Array) -> void:
 		_spawn_fragment(r[0], r[1])
 		_remove_cell_nodes(r[0])
 	cells_removed.emit(removed.size(), removed[0][1].get("attacker"), to_global(_cell_center(removed[0][0])))
+	Audio.broke(self, to_global(_cell_center(removed[0][0])))
 	_wake_debris()
 	if cells.is_empty():
 		queue_free()

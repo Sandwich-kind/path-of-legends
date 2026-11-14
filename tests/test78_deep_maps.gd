@@ -13,7 +13,7 @@ func _process(_d: float) -> bool:
 	f += 1
 	if f == 3 or (f > 3 and (f - 3) % 150 == 0):
 		if f > 3:
-			root.get_viewport().get_texture().get_image().save_png(shots + "map_%s.png" % maps[mi])
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "map_%s.png" % maps[mi])
 			mi += 1
 			if mi >= maps.size():
 				return true

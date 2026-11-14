@@ -118,9 +118,11 @@ func _on_body_entered(body: Node) -> void:
 		if body.hp >= body.max_hp:
 			return                     # здоровье полное — сердце остаётся лежать
 		body.heal(HEAL)
+		Audio.picked("heal", false, global_position)
 		picked.emit("+%d" % HEAL, Color(1.0, 0.45, 0.5))
 	else:
 		var got_mega: bool = body.add_buff(kind, mega, allow_mega and body.allow_mega)
+		Audio.picked(kind, got_mega, global_position)
 		var n: String = Buffs.title(kind, got_mega)
 		picked.emit((n.to_upper() + "!") if got_mega else n + "!", Buffs.TYPES[kind]["color"])
 	Util.flash(get_parent(), global_position, 40.0, Color(1, 1, 1, 0.7))

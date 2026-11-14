@@ -9,7 +9,7 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % n)
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % n)
 func find(t):
 	for n in main.world.get_children():
 		if is_instance_of(n, t): return n

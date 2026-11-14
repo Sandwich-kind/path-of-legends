@@ -10,7 +10,7 @@ func _initialize() -> void:
 	main = load("res://main.tscn").instantiate()
 	root.add_child(main)
 func shot(name: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("res://tests/shots/" + name + ".png")
 	print("shot ", name)
 func find(cls):
 	for n in main.world.get_children():
@@ -49,7 +49,7 @@ func _physics_process(_d: float) -> bool:
 	var foe: Player = main.duel_players[1]
 	me._protect = 1.0
 	foe._protect = 0.0
-	var tag := "%s%s" % [Characters.LIST[heroes[hi][0]]["rig"], "_mega" if heroes[hi][1] else ""]
+	var tag := "%s%s" % [Characters.LIST[heroes[hi][0]].get("rig", "testik"), "_mega" if heroes[hi][1] else ""]
 	match d:
 		200:
 			me.position = Vector2(300, 570)

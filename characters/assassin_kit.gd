@@ -22,6 +22,9 @@ var _storm_mega := false
 var _storm_tick := 0.0
 var _storm_hop := 0.0
 var _puppets: Array = []
+var _pup_i := 0
+# позы теней в «Вихре клинков»: каждый рывок — новый удар (снизу, сверху, выпад, разворот…)
+const STORM_POSES := ["cut1", "cut2", "cut3", "cut4", "cut5", "big_cut", "cut2", "cut4"]
 var _last_pos := Vector2.ZERO
 var _mark: Player
 var _mark_t := 0.0
@@ -59,7 +62,7 @@ func weapon(delta: float, shoot: bool) -> void:
 	p._anim("throw")
 	if _shadow_t > 0.0:
 		b.pierce = 1                              # в форме тени кунай прошивает врага
-		b.color = Color(0.6, 0.45, 0.85)
+		b.color = Skins.col(p, Color(0.6, 0.45, 0.85))
 	if rapid and p.is_mega("rapid"):
 		b.pierce = maxi(b.pierce, 2)
 	p._cooldown_left = p.fire_cooldown * (0.5 if rapid else (0.8 if _shadow_t > 0.0 else 1.0))
@@ -70,7 +73,6 @@ func weapon(delta: float, shoot: bool) -> void:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or p._cd[i] > 0.0:
 		return
 	if _storm_t > 0.0 or _busy > 0.0:
@@ -121,14 +123,16 @@ func _start_storm(mega: bool) -> void:
 	for k in (4 if mega else 3):
 		var r := BotRig.new()
 		r.kind = "assassin"
+		r.custom_spec = p.rig_spec                  # тени — в облике героя
 		r.size = p.body_size
 		r.z_index = 5
 		r.puppet_facing = 1 if k % 2 == 0 else -1
 		r.modulate = Color(1, 1, 1, 0.0)
+		r.instant = true
 		world.add_child(r)
 		r.global_position = p.global_position
 		_puppets.append(r)
-	Fx.sparks(world, p.global_position, Color(0.5, 0.75, 0.55), 10, 220.0, 3.0)
+	Fx.sparks(world, p.global_position, Skins.col(p, Color(0.5, 0.75, 0.55)), 10, 220.0, 3.0)
 
 func _storm_tick_fn(delta: float) -> void:
 	_storm_t -= delta
@@ -138,28 +142,43 @@ func _storm_tick_fn(delta: float) -> void:
 	_storm_hop -= delta
 	if _storm_hop <= 0.0:
 		_storm_hop = 0.06 if _storm_mega else 0.075
-		var pup: BotRig = _puppets[randi() % _puppets.size()]
+		_pup_i = (_pup_i + 1) % _puppets.size()       # по очереди: самая «старая» тень делает новый рывок
+		var pup: BotRig = _puppets[_pup_i]
 		if is_instance_valid(pup):
 			var to := p.global_position + Vector2(randf_range(-R, R), randf_range(-14.0, 6.0))
+			# след рывка: тонкий, к концу тает
 			var streak := Line2D.new()
-			streak.points = PackedVector2Array([_last_pos + Vector2(0, -10), to + Vector2(0, -10)])
-			streak.width = 10.0
-			streak.default_color = Color(0.35, 0.65, 0.45, 0.45)
+			streak.points = PackedVector2Array([_last_pos + Vector2(0, -12), to + Vector2(0, -12)])
+			streak.width = 7.0
+			var wc := Curve.new()
+			wc.add_point(Vector2(0, 0.2))
+			wc.add_point(Vector2(1, 1))
+			streak.width_curve = wc
+			streak.default_color = Skins.col(p, Color(0.45, 0.8, 0.55, 0.5))
 			streak.z_index = 4
 			world.add_child(streak)
 			var st := streak.create_tween()
 			st.tween_property(streak, "modulate:a", 0.0, 0.14)
 			st.tween_callback(streak.queue_free)
 			var face := 1 if to.x >= _last_pos.x else -1
-			pup.global_position = to
+			if pup.has_meta("tw"):
+				var old: Tween = pup.get_meta("tw")
+				if old and old.is_valid():
+					old.kill()
+			# тень влетает в новое место наклонившись вперёд и сразу бьёт — каждый раз новым ударом
+			pup.global_position = _last_pos.lerp(to, 0.4)
 			pup.puppet_facing = face
 			pup.scale.x = face
+			pup.rotation = 0.28 * face
 			pup.modulate = Color(1, 1, 1, 0.95)
-			pup.play(["cut1", "cut2", "cut3", "cut4"][randi() % 4])
+			pup.play(STORM_POSES[randi() % STORM_POSES.size()], 1.5)
 			var ft := pup.create_tween()
-			ft.tween_property(pup, "modulate:a", 0.25, 0.22)
+			ft.tween_property(pup, "global_position", to, 0.05).set_ease(Tween.EASE_OUT)
+			ft.parallel().tween_property(pup, "rotation", 0.0, 0.1).set_delay(0.04)
+			ft.parallel().tween_property(pup, "modulate:a", 0.0, 0.17).set_delay(0.07)
+			pup.set_meta("tw", ft)
 			Fx.arc(world, to + Vector2(face * 30.0, -6.0), 34.0, -1.1 if face > 0 else PI - 1.1, 1.1 if face > 0 else PI + 1.1,
-					Color(0.9, 1.0, 0.95, 0.85), 0.12, 10.0)
+					Skins.col(p, Color(0.9, 1.0, 0.95, 0.85)), 0.12, 10.0)
 			_last_pos = to
 	# урон всем, кто подошёл
 	_storm_tick -= delta
@@ -185,8 +204,8 @@ func _end_storm(finish: bool) -> void:
 		# МЕГА: размашистый удар вокруг себя
 		var world := p.get_parent()
 		p._anim("big_cut")
-		Fx.ring(world, p.global_position, 230.0, Color(0.6, 1.0, 0.75, 0.9), 0.35, 10.0, 0.45)
-		Fx.arc(world, p.global_position, 150.0, -PI, PI, Color(0.95, 1.0, 0.95, 0.9), 0.3, 22.0)
+		Fx.ring(world, p.global_position, 230.0, Skins.col(p, Color(0.6, 1.0, 0.75, 0.9)), 0.35, 10.0, 0.45)
+		Fx.arc(world, p.global_position, 150.0, -PI, PI, Skins.col(p, Color(0.95, 1.0, 0.95, 0.9)), 0.3, 22.0)
 		for e in _enemies():
 			var dd: Vector2 = e.global_position - p.global_position
 			if absf(dd.x) < 230.0 + e.body_size.x / 2 and absf(dd.y) < 120.0 + e.body_size.y * 0.3:
@@ -200,7 +219,7 @@ func _leap(mega: bool) -> void:
 	p._forced_time = 0.42
 	p._forced_vx = p.facing * 560.0
 	p._forced_no_gravity = false
-	Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Color(0.85, 0.95, 0.9), 8, 180.0, 4.0, true)
+	Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Skins.col(p, Color(0.85, 0.95, 0.9)), 8, 180.0, 4.0, true)
 	_after(0.42, func():
 		if not p.is_alive():
 			return
@@ -309,7 +328,7 @@ func _uppercut(t: Player, dmg: int) -> void:
 	var slash := Node2D.new()
 	slash.z_index = 7
 	world.add_child(slash)
-	for layer in [[60.0, Color(0.35, 0.15, 0.55, 0.35)], [26.0, Color(0.65, 0.4, 0.95, 0.8)], [8.0, Color(1, 1, 1, 1)]]:
+	for layer in [[60.0, Skins.col(p, Color(0.35, 0.15, 0.55, 0.35))], [26.0, Skins.col(p, Color(0.65, 0.4, 0.95, 0.8))], [8.0, Skins.col(p, Color(1, 1, 1, 1))]]:
 		var l := Line2D.new()
 		l.points = PackedVector2Array([Vector2(x - 6, ground), Vector2(x + 10, -600.0)])
 		l.width = layer[0]
@@ -323,8 +342,8 @@ func _uppercut(t: Player, dmg: int) -> void:
 	st.tween_interval(0.25)
 	st.tween_property(slash, "modulate:a", 0.0, 0.45)
 	st.tween_callback(slash.queue_free)
-	Fx.arc(world, Vector2(x, ground - 30), 70.0, -PI * 0.9, -PI * 0.1, Color(0.9, 0.8, 1.0, 0.9), 0.25, 18.0)
-	Fx.sparks(world, Vector2(x, ground - 40), Color(0.75, 0.55, 1.0), 16, 320.0, 4.0, true)
+	Fx.arc(world, Vector2(x, ground - 30), 70.0, -PI * 0.9, -PI * 0.1, Skins.col(p, Color(0.9, 0.8, 1.0, 0.9)), 0.25, 18.0)
+	Fx.sparks(world, Vector2(x, ground - 40), Skins.col(p, Color(0.75, 0.55, 1.0)), 16, 320.0, 4.0, true)
 	if is_instance_valid(t) and t.is_alive():
 		t.take_damage(dmg, p)
 		t.velocity = Vector2(0, -900.0)
@@ -352,6 +371,7 @@ func _shadow_mega(t: Player) -> void:
 	for o in offs:
 		var r := BotRig.new()
 		r.kind = "assassin"
+		r.custom_spec = p.rig_spec
 		r.size = p.body_size
 		r.z_index = 6
 		r.puppet_facing = 1 if o.x < 0 else -1
@@ -373,7 +393,7 @@ func _shadow_mega(t: Player) -> void:
 			var streak := Line2D.new()
 			streak.points = PackedVector2Array([r.global_position, to])
 			streak.width = 12.0
-			streak.default_color = Color(0.25, 0.15, 0.35, 0.8)
+			streak.default_color = Skins.col(p, Color(0.25, 0.15, 0.35, 0.8))
 			streak.z_index = 6
 			world.add_child(streak)
 			var stw := streak.create_tween()
@@ -386,7 +406,7 @@ func _shadow_mega(t: Player) -> void:
 			rt.tween_callback(r.queue_free)
 			if is_instance_valid(t) and t.is_alive():
 				t.take_damage(6, p)                     # цель оглушена — урон и так удвоен
-		Fx.ring(world, t.global_position if is_instance_valid(t) else c, 90.0, Color(0.7, 0.45, 1.0, 0.9), 0.25, 6.0))
+		Fx.ring(world, t.global_position if is_instance_valid(t) else c, 90.0, Skins.col(p, Color(0.7, 0.45, 1.0, 0.9)), 0.25, 6.0))
 	_shadow_strike(t, 40, 0.65)
 	_after(1.6, func():
 		if p.is_alive():
@@ -399,7 +419,7 @@ func _smoke(world: Node, at: Vector2) -> void:
 	for k in 6:
 		var puff := Polygon2D.new()
 		puff.polygon = Util.circle(randf_range(12.0, 20.0), 10)
-		puff.color = Color(0.12, 0.1, 0.16, 0.7)
+		puff.color = Skins.col(p, Color(0.12, 0.1, 0.16, 0.7))
 		puff.position = at + Vector2(randf_range(-22, 22), randf_range(-30, 20))
 		puff.z_index = 6
 		world.add_child(puff)
@@ -432,7 +452,7 @@ func _physics_process(delta: float) -> void:
 			_shadow_fx = 0.08
 			var ghost := Polygon2D.new()
 			ghost.polygon = PackedVector2Array([Vector2(-12, -28), Vector2(12, -28), Vector2(15, 30), Vector2(-15, 30)])
-			ghost.color = Color(0.25, 0.18, 0.35, 0.45)
+			ghost.color = Skins.col(p, Color(0.25, 0.18, 0.35, 0.45))
 			ghost.position = p.global_position
 			ghost.z_index = -1
 			p.get_parent().add_child(ghost)

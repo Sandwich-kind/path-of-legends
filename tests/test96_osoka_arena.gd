@@ -18,7 +18,7 @@ func _initialize() -> void:
 func shot(n: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
 	if img:
-		img.save_png("/tmp/claude-0/st/osa_%s.png" % n)
+		if img: img.save_png("/tmp/claude-0/st/osa_%s.png" % n)
 func line_up(dxs: Array) -> void:
 	for i in bots.size():
 		var b: Player = bots[i]

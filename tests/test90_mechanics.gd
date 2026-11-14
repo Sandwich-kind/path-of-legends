@@ -43,7 +43,7 @@ func _next() -> void:
 		if n is ArenaMode: arena = n
 
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png(shots + n + ".png")
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + n + ".png")
 
 func put(pos: Vector2) -> void:
 	p.global_position = pos

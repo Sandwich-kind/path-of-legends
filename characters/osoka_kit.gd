@@ -74,8 +74,8 @@ func in_mud() -> void:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	var speed_k := 2.0 if (i == 0 and is_instance_valid(_wake)) else 1.0     # в болоте ульты Нырок быстрее
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed() * speed_k)
+	if i == 0 and is_instance_valid(_wake):                   # в болоте ульты Нырок откатывается в 1,5 раза быстрее
+		p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed() * 0.5)   # (обычный откат идёт в Player._handle_abilities)
 	if not Input.is_action_just_pressed(action):
 		return
 	if ab == "mud_dive" and _dive_t > 0.0:
@@ -122,11 +122,11 @@ func _dive(mega: bool) -> void:
 	_mound.z_index = 3
 	var hump := Polygon2D.new()
 	hump.polygon = PackedVector2Array([Vector2(-26, 0), Vector2(-16, -9), Vector2(0, -13), Vector2(16, -9), Vector2(26, 0)])
-	hump.color = MUD
+	hump.color = Skins.col(p, MUD)
 	_mound.add_child(hump)
 	var moss := Polygon2D.new()
 	moss.polygon = PackedVector2Array([Vector2(-10, -11), Vector2(10, -11), Vector2(4, -14), Vector2(-5, -14)])
-	moss.color = Color(0.40, 0.56, 0.26)
+	moss.color = Skins.col(p, Color(0.40, 0.56, 0.26))
 	_mound.add_child(moss)
 	world.add_child(_mound)
 	_place_mound()
@@ -170,11 +170,11 @@ func _geyser(x: float, gy: float, first: bool) -> void:
 	col.z_index = 4
 	var jet := Polygon2D.new()
 	jet.polygon = PackedVector2Array([Vector2(-34, 0), Vector2(-20, -150), Vector2(-8, -210), Vector2(8, -205), Vector2(22, -150), Vector2(34, 0)])
-	jet.color = Color(0.34, 0.38, 0.22, 0.9)
+	jet.color = Skins.col(p, Color(0.34, 0.38, 0.22, 0.9))
 	col.add_child(jet)
 	var core := Polygon2D.new()
 	core.polygon = PackedVector2Array([Vector2(-12, 0), Vector2(-6, -170), Vector2(6, -170), Vector2(12, 0)])
-	core.color = Color(0.50, 0.60, 0.32, 0.8)
+	core.color = Skins.col(p, Color(0.50, 0.60, 0.32, 0.8))
 	col.add_child(core)
 	col.scale = Vector2(0.6, 0.1)
 	world.add_child(col)
@@ -329,12 +329,12 @@ func _frog_jump(e: Player) -> void:
 	frog.z_index = 7
 	var body := Polygon2D.new()
 	body.polygon = PackedVector2Array([Vector2(-11, 0), Vector2(-9, -9), Vector2(0, -12), Vector2(9, -9), Vector2(11, 0)])
-	body.color = Color(0.40, 0.66, 0.28)
+	body.color = Skins.col(p, Color(0.40, 0.66, 0.28))
 	frog.add_child(body)
 	for sx in [-5.0, 5.0]:
 		var eye := Polygon2D.new()
 		eye.polygon = Util.circle(3.0, 8)
-		eye.color = Color(0.52, 0.78, 0.36)
+		eye.color = Skins.col(p, Color(0.52, 0.78, 0.36))
 		eye.position = Vector2(sx, -12)
 		frog.add_child(eye)
 		var pupil := Polygon2D.new()

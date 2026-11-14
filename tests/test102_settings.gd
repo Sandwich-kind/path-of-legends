@@ -10,6 +10,6 @@ func _physics_process(_d: float) -> bool:
 	if f == 5:
 		main._on_mode_chosen("settings")
 	if f == 25:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/settings.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/settings.png")
 		return true
 	return false

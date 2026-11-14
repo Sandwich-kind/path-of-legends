@@ -8,8 +8,7 @@ func _physics_process(_d: float) -> bool:
 	f += 1
 	if f == 3:
 		main.sel = [1, 0]
-		main._on_map_chosen("test_field", 1, 3)
-		main._start_game()
+		main._on_duel_ready("test_field", 1, 3, main.sel)
 	if f == 200:
 		for team in 2:
 			var p: Player = main.duel_players[team]

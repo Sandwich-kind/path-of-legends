@@ -36,7 +36,7 @@ func _physics_process(_d: float) -> bool:
 		print("wall x=", w[0].global_position.x if w.size() > 0 else -1, " focus x=", p1.kit._ray.focus().x if p1.kit.ulting() else -1)
 	if f == 480:
 		print("amplified laser: ", (h0 - p2.hp) / 2.0, " dps")
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/prism_combo.png") if root.get_viewport().get_texture() else null
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/prism_combo.png") if root.get_viewport().get_texture() else null
 	if f == 700:
 		p1._cd = [0, 0, 0]
 		for w in root.get_tree().get_nodes_in_group("mirror_walls"): w.life = 0.0

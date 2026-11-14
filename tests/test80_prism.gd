@@ -15,7 +15,7 @@ func _initialize() -> void:
 func press(a: String) -> void:
 	Input.action_press(a)
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png(shots + "prism_%s.png" % n)
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "prism_%s.png" % n)
 func _physics_process(_d: float) -> bool:
 	f += 1
 	for a in ["p1_a1", "p1_a2", "p1_a3", "p1_ult"]:

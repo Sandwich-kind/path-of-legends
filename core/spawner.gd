@@ -32,6 +32,8 @@ static func pick(world: Node2D, p: Player, enemy: Player, info: Dictionary) -> D
 		var spots := _spots_on_line(space, x, info["top_y"], size.y)
 		spots.shuffle()
 		for s in spots:
+			if s.y > info.get("spawn_max_y", INF):
+				continue                         # ниже пола (шпалы под поездом) — не возрождаемся
 			if enemy != null and is_instance_valid(enemy) and enemy.is_alive() \
 					and s.distance_to(enemy.global_position) < MIN_ENEMY_DIST:
 				continue

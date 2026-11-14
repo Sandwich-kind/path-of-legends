@@ -46,7 +46,7 @@ func _physics_process(_d: float) -> bool:
 				seen[k] = true
 				print("wave ", arena.wave, " spawned ", k, " hp=", b.max_hp)
 	if lt == 60 * 9 or lt == 60 * 16 or lt == 60 * 24:
-		root.get_viewport().get_texture().get_image().save_png(shots + "w%d_%d.png" % [waves[wi], lt / 60])
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png(shots + "w%d_%d.png" % [waves[wi], lt / 60])
 		print("w", waves[wi], " t=", lt / 60, " state=", arena._state, " alive=", arena._alive.size(), " boss=", arena._boss != null and is_instance_valid(arena._boss), " q=", arena._queue.size())
 	if lt == 60 * 26:
 		# добить всех: проверка раскола, золота и смерти боссов

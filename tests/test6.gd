@@ -44,7 +44,7 @@ func _physics_process(_d: float) -> bool:
 			held.erase(a)
 	match f:
 		3:
-			main.sel = [0, 1]
+			main.sel = [2, 3]                  # TESTIK_1 и UBER_TESTIK_2: гранаты, прицел, залп — их
 			main.map_id = "test_field"
 			main.start_duel()
 		5:

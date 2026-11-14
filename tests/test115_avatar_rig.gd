@@ -38,9 +38,9 @@ func _initialize() -> void:
 func _process(_d: float) -> bool:
 	f += 1
 	if f == 30:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/avatar_a.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/avatar_a.png")
 		rigs[0].play("open")
 	if f == 70:
-		root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/avatar_b.png")
+		if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/avatar_b.png")
 		return true
 	return false

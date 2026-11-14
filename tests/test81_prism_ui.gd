@@ -11,7 +11,7 @@ func find(t):
 		if is_instance_of(n, t): return n
 	return null
 func shot(n: String) -> void:
-	root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % n)
+	if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/%s.png" % n)
 func _physics_process(_d: float) -> bool:
 	f += 1
 	match f:

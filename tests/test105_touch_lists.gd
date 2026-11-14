@@ -60,7 +60,7 @@ func _process(_d: float) -> bool:
 			mouse(bs._scroll.get_global_rect().get_center() + Vector2(0, -160), "up")
 		50:
 			print("after drag: scroll=", bs._scroll.scroll_vertical, " sel=", bs._sel, " (выбор не должен измениться от листания)")
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/best_scrolled.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/best_scrolled.png")
 			# коснуться карточки 13 (последний ряд)
 			var c: Button = bs._cards[12]
 			mouse(c.get_global_rect().get_center(), "down")
@@ -92,6 +92,6 @@ func _process(_d: float) -> bool:
 			mouse(inv._lsc.get_global_rect().get_center() + Vector2(-40, 100), "up")
 		120:
 			print("inventory tap: hero=", Characters.LIST[inv._hero]["name"], " scroll kept=", inv._lsc.scroll_vertical)
-			root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_scrolled.png")
+			if DisplayServer.get_name() != "headless": root.get_viewport().get_texture().get_image().save_png("/tmp/claude-0/st/inv_scrolled.png")
 			return true
 	return false

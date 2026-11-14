@@ -16,6 +16,8 @@ var _combo := 0
 var _combo_t := 0.0
 var _flurry_t := 0.0
 var _flurry_tick := 0.0
+var _fl_slash := -1            # какой по счёту удар серии идёт (для звука)
+var _fl_cut_t := 0.0           # когда появится следующий порез
 var _frozen: Array = []
 var _dash_t := 0.0
 var flame_t := 0.0
@@ -59,7 +61,6 @@ func _rifle(delta: float, shoot: bool) -> void:
 
 # ---------- Способности ----------
 func handle_ability(i: int, ab: String, action: String, delta: float) -> void:
-	p._cd[i] = maxf(0.0, p._cd[i] - delta * p._cd_speed())
 	if not Input.is_action_just_pressed(action) or p._cd[i] > 0.0:
 		return
 	if _flurry_t > 0.0 or _run_t > 0.0:
@@ -367,9 +368,9 @@ func _cut_hit(step: int) -> void:
 		return
 	var both := step == 4                             # удар с разворотом — во все стороны
 	_melee(CUT_REACH[step], 60.0 if step != 3 else 38.0, CUT_DMG[step], 300.0 if step == 4 else 160.0, 26, both)
-	var col := Color(1, 1, 1, 0.75)
+	var col := Skins.col(p, Color(1, 1, 1, 0.75))
 	if flame_t > 0.0:
-		col = BLUE_FIRE if _flame_mega else ORANGE_FIRE
+		col = Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 	var c := p.global_position + Vector2(p.facing * 18.0, -10.0)
 	var arc: Array = CUT_ARC[step]
 	if step == 3:
@@ -392,12 +393,12 @@ func _wide_cut() -> void:
 	if not p.is_alive():
 		return
 	_melee(240.0, 110.0, 24, 420.0, 40, false)
-	var col := Color(1, 1, 1, 0.85)
+	var col := Skins.col(p, Color(1, 1, 1, 0.85))
 	if flame_t > 0.0:
-		col = BLUE_FIRE if _flame_mega else ORANGE_FIRE
+		col = Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 	var c := p.global_position + Vector2(p.facing * 20.0, -10.0)
 	Fx.arc(p.get_parent(), c, 210.0, _ang(-2.2), _ang(1.3), col, 0.3, 46.0)
-	Fx.arc(p.get_parent(), c, 150.0, _ang(-2.0), _ang(1.1), Color(1, 1, 1, 0.5), 0.22, 18.0)
+	Fx.arc(p.get_parent(), c, 150.0, _ang(-2.0), _ang(1.1), Skins.col(p, Color(1, 1, 1, 0.5)), 0.22, 18.0)
 	Fx.sparks(p.get_parent(), c + Vector2(p.facing * 150.0, 0), col, 10, 240.0, 4.0)
 
 func _launch_wave() -> void:
@@ -409,7 +410,7 @@ func _launch_wave() -> void:
 	w.dir = p.facing
 	w.position = p.global_position + Vector2(p.facing * 40.0, -6.0)
 	if flame_t > 0.0:
-		w.color = BLUE_FIRE if _flame_mega else ORANGE_FIRE
+		w.color = Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 		w.burn = 9.0 if _flame_mega else 7.0
 		if _flame_mega:
 			w.freeze = 1.3
@@ -423,6 +424,8 @@ func _start_flurry() -> void:
 	p._forced_time = 1.45
 	p._forced_vx = 0.0
 	p._anim("flurry")
+	_fl_slash = -1
+	_fl_cut_t = BotRig.FLURRY_SET
 	_after(1.0, _flurry_finish)
 
 func _flurry_finish() -> void:
@@ -440,11 +443,79 @@ func _flurry_big_hit() -> void:
 	_melee(190.0, 80.0, 30, 520.0, 60, false)      # ...и бьёт мощным взмахом
 	if Balance.arena(p):
 		_launch_wave()
-	var col := Color(1, 1, 1, 0.85)
+	var col := Skins.col(p, Color(1, 1, 1, 0.85))
 	if flame_t > 0.0:
-		col = BLUE_FIRE if _flame_mega else ORANGE_FIRE
+		col = Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 	Fx.arc(p.get_parent(), p.global_position + Vector2(p.facing * 20.0, -10.0), 160.0, _ang(-2.3), _ang(1.2), col, 0.3, 34.0)
-	Fx.ring(p.get_parent(), p.global_position + Vector2(p.facing * 110.0, 0), 90.0, Color(1, 1, 1, 0.8), 0.3, 5.0)
+	Fx.ring(p.get_parent(), p.global_position + Vector2(p.facing * 110.0, 0), 90.0, Skins.col(p, Color(1, 1, 1, 0.8)), 0.3, 5.0)
+
+# Порезы серии: в области перед Самураем вспыхивают резкие тонкие росчерки
+# под разными углами — появляются мгновенно и тут же гаснут
+func _flurry_blade() -> void:
+	var el := 1.0 - _flurry_t
+	var si := int((el - BotRig.FLURRY_SET) / BotRig.FLURRY_STEP) if el >= BotRig.FLURRY_SET else -1
+	if si != _fl_slash:
+		if si >= 0:
+			Audio.sfx("swing", p.global_position, -9.0)
+		_fl_slash = si
+	if el < _fl_cut_t:
+		return
+	_fl_cut_t = el + randf_range(0.035, 0.06)
+	var col := Skins.col(p, Color(1, 1, 1, 0.95))
+	if flame_t > 0.0:
+		col = (Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)).lightened(0.35)
+	for k in (2 if randf() < 0.45 else 1):
+		var c := p.global_position + Vector2(p.facing * randf_range(45.0, 150.0), randf_range(-55.0, 30.0))
+		_slash_mark(c, randf_range(-PI, PI), randf_range(55.0, 105.0), col)
+
+func _slash_mark(at: Vector2, ang: float, length: float, col: Color) -> void:
+	var cut := Polygon2D.new()
+	var h := length / 2.0
+	var w := randf_range(2.5, 4.0)
+	cut.polygon = PackedVector2Array([Vector2(-h, 0), Vector2(-h * 0.35, -w), Vector2(h * 0.4, -w * 0.8),
+			Vector2(h, 0), Vector2(h * 0.4, w * 0.5), Vector2(-h * 0.35, w * 0.6)])
+	cut.color = col
+	cut.position = at
+	cut.rotation = ang
+	cut.scale = Vector2(0.35, 1.0)
+	cut.z_index = 9
+	p.get_parent().add_child(cut)
+	var tw := cut.create_tween()
+	tw.tween_property(cut, "scale", Vector2(1.15, 1.0), 0.035)          # росчерк «выстреливает» во всю длину
+	tw.parallel().tween_property(cut, "modulate:a", 0.0, 0.11).set_delay(0.03)
+	tw.parallel().tween_property(cut, "scale:y", 0.3, 0.1).set_delay(0.03)
+	tw.tween_callback(cut.queue_free)
+
+# Иней синего пламени (МЕГА-ульта Самурая): каждый удар холодит и замедляет,
+# третий удар подряд (за 2,5 с) вмораживает — обычного врага на 1 с, соперника
+# в Дуэли на 0,6 с. Потом 3,5 с иней только замедляет, заново не вмораживает.
+# Боссов не вмораживает совсем — лишь сильно замедляет.
+const FROST_STACKS := 3
+static func frost(e: Player, add: int) -> void:
+	if e == null or not is_instance_valid(e) or not e.is_alive():
+		return
+	var now := float(Engine.get_physics_frames()) / Engine.physics_ticks_per_second    # игровое время
+	var boss := e.stagger_max > 0.0
+	e.slow(1.2, 0.7, "frost")
+	if now < float(e.get_meta("frost_cd", 0.0)):
+		return
+	var st: int = e.get_meta("frost_st", 0)
+	if now - float(e.get_meta("frost_t", -99.0)) > 2.5:
+		st = 0
+	st += add
+	e.set_meta("frost_t", now)
+	if st < FROST_STACKS:
+		e.set_meta("frost_st", st)
+		return
+	e.set_meta("frost_st", 0)
+	e.set_meta("frost_cd", now + 3.5)
+	if boss:
+		e.slow(2.0, 0.45, "frost")
+		Fx.sparks(e.get_parent(), e.global_position, Color(0.7, 0.9, 1.0), 12, 200.0, 4.0)
+		return
+	var t := 1.0 if e.is_bot else 0.6
+	e.stun(t)
+	Fx.ice(e, e.body_size, t)
 
 func _release_frozen() -> void:
 	for e in _frozen:
@@ -491,7 +562,7 @@ func _dash_up() -> void:
 	p.velocity.y = -980.0
 	p.collision_mask = Player.PHASE_MASK
 	p._anim("dash_up")
-	Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Color(0.9, 0.9, 1.0), 8, 180.0, 4.0, true)
+	Fx.sparks(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), Skins.col(p, Color(0.9, 0.9, 1.0)), 8, 180.0, 4.0, true)
 
 # Арена: через мгновение после рывка — разрез по всей линии пути
 func _dash_slash(from: Vector2) -> void:
@@ -509,7 +580,7 @@ func _dash_slash(from: Vector2) -> void:
 		var l := Line2D.new()
 		l.points = PackedVector2Array([from, to])
 		l.width = 8.0 if hit else 5.0
-		l.default_color = Color(0.95, 0.97, 1.0, 0.8)
+		l.default_color = Skins.col(p, Color(0.95, 0.97, 1.0, 0.8))
 		l.z_index = 8
 		p.get_parent().add_child(l)
 		var t := l.create_tween()
@@ -534,12 +605,12 @@ func _teleport() -> void:
 	p.global_position = to
 	p.velocity = Vector2.ZERO
 	_push_out()
-	Fx.sparks(world, from, Color(0.85, 0.9, 1.0), 12, 220.0, 4.0)
-	Fx.ring(world, p.global_position, 60.0, Color(0.9, 0.95, 1.0, 0.9), 0.3, 4.0)
+	Fx.sparks(world, from, Skins.col(p, Color(0.85, 0.9, 1.0)), 12, 220.0, 4.0)
+	Fx.ring(world, p.global_position, 60.0, Skins.col(p, Color(0.9, 0.95, 1.0, 0.9)), 0.3, 4.0)
 	var trail := Line2D.new()
 	trail.points = PackedVector2Array([from, p.global_position])
 	trail.width = 10.0
-	trail.default_color = Color(0.9, 0.95, 1.0, 0.6)
+	trail.default_color = Skins.col(p, Color(0.9, 0.95, 1.0, 0.6))
 	trail.z_index = 7
 	world.add_child(trail)
 	var t := trail.create_tween()
@@ -568,12 +639,12 @@ func _down_cut_hit() -> void:
 			for x in [-40.0, 0.0, 40.0, 80.0]:
 				for y in [0.0, 40.0, 80.0]:
 					n.hit(c + Vector2(p.facing * x, y), Vector2.DOWN, 30, 6.0, p.team, {"strict": true, "attacker": p})
-	Fx.arc(world, p.global_position, 120.0, _ang(-1.6), _ang(1.4), Color(0.95, 0.97, 1.0, 0.85), 0.25, 24.0)
+	Fx.arc(world, p.global_position, 120.0, _ang(-1.6), _ang(1.4), Skins.col(p, Color(0.95, 0.97, 1.0, 0.85)), 0.25, 24.0)
 
 func _afterimage(at: Vector2) -> void:
 	var g := Polygon2D.new()
 	g.polygon = PackedVector2Array([Vector2(-14, -30), Vector2(14, -30), Vector2(18, 30), Vector2(-18, 30)])
-	g.color = Color(0.8, 0.85, 1.0, 0.45)
+	g.color = Skins.col(p, Color(0.8, 0.85, 1.0, 0.45))
 	g.position = at
 	g.z_index = 5
 	p.get_parent().add_child(g)
@@ -588,7 +659,7 @@ func _ignite() -> void:
 	p._forced_time = 0.85
 	p._forced_vx = 0.0
 	p._anim("ignite")
-	var col := BLUE_FIRE if mega else ORANGE_FIRE
+	var col := Skins.col(p, BLUE_FIRE if mega else ORANGE_FIRE)
 	Fx.rune_circle(p.get_parent(), p.global_position + Vector2(0, p.body_size.y / 2), 70.0, col, 1.1)
 	Fx.glow(p.get_parent(), p.global_position, 70.0, Color(col, 0.25), 1.0)
 	_after(0.45, _light_blade)
@@ -596,7 +667,7 @@ func _ignite() -> void:
 func _light_blade() -> void:
 	if not p.is_alive():
 		return
-	var col := BLUE_FIRE if _flame_mega else ORANGE_FIRE
+	var col := Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 	flame_t = 13.0 if Balance.arena(p) else 9.0        # Арена: клинок горит дольше
 	if p.rig:
 		p.rig.blade_fire = col
@@ -628,9 +699,7 @@ func _samurai_tick(delta: float) -> void:
 						_frozen.append(e)
 						e.set_tint(Color(0.75, 0.8, 1.0))
 					_fire_effects(e)
-			var c := p.global_position + Vector2(p.facing * (40.0 + randf() * 70.0), randf_range(-40.0, 25.0))
-			var a := randf_range(-PI, PI)
-			Fx.arc(p.get_parent(), c, randf_range(30.0, 55.0), a, a + 2.2, Color(1, 1, 1, 0.7), 0.1, 8.0)
+		_flurry_blade()
 	if _dash_t > 0.0:
 		_dash_t -= delta
 		if p.velocity.y >= 0.0 or _dash_t <= 0.0:
@@ -640,7 +709,7 @@ func _samurai_tick(delta: float) -> void:
 		_flame_fx -= delta
 		if _flame_fx <= 0.0 and p.rig:
 			_flame_fx = 0.07
-			var col := BLUE_FIRE if _flame_mega else ORANGE_FIRE
+			var col := Skins.col(p, BLUE_FIRE if _flame_mega else ORANGE_FIRE)
 			Fx.sparks(p.get_parent(), p.rig.tip(), col, 2, 90.0, 4.0, true)
 			Fx.sparks(p.get_parent(), p.global_position + Vector2(randf_range(-14, 14), 20), Color(col, 0.6), 1, 80.0, 3.0, true)
 		if flame_t <= 0.0:
@@ -666,8 +735,7 @@ func _melee(reach: float, half_h: float, dmg: int, knock: float, cell_dmg: int, 
 				e.velocity = Vector2(side * knock, -150.0)
 				_fire_effects(e)
 				if hero == "samurai" and flame_t > 0.0 and _flame_mega and _flurry_t <= 0.0:
-					e.stun(1.0)                           # МЕГА-ульта: удары замораживают
-					Fx.ice(e, e.body_size, 1.0)
+					EliteKit.frost(e, 1)                  # МЕГА-ульта: удары копят иней
 	for n in world.get_children():
 		if n is Destructible and n.shield_team != p.team and not n.background \
 				and n.global_position.distance_to(p.global_position) < 500.0:

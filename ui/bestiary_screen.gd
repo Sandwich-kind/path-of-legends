@@ -9,8 +9,9 @@ signal back_pressed
 
 const TABS := [["forest", "Лес"], ["village", "Деревня"], ["jungle", "Джунгли"], ["caves", "Пещеры"],
 		["deep", "Самоцветы"], ["colosseum", "Колизей"], ["eerie", "Жуткий лес"], ["swamp", "Болото"],
-		["ice", "Ледяная тропа"], ["storm", "Храм шторма"], ["lava", "Лава"], ["throne", "Тронный зал"]]
-const TAB_ROW := 6                  # вкладок в ряду (два ряда)
+		["ice", "Ледяная тропа"], ["storm", "Храм шторма"], ["lava", "Лава"], ["throne", "Тронный зал"],
+		["rift", "Странник"]]
+const TAB_ROW := 7                  # вкладок в ряду (два ряда)
 const INK := Color(0.95, 0.88, 0.72)
 
 var _tab := 0
@@ -38,7 +39,7 @@ func _ready() -> void:
 	add_child(title)
 	var bw := minf(_vs.x - 80.0, 1100.0)
 	var x0 := (_vs.x - bw) / 2
-	var tw := (bw - 260.0) / TAB_ROW
+	var tw := (bw - 175.0) / TAB_ROW
 	for i in TABS.size():
 		var b := MainMenu.make_button(self, TABS[i][1], Vector2(x0 + (i % TAB_ROW) * tw, 76 + (i / TAB_ROW) * 46), Vector2(tw - 6.0, 42), 15)
 		b.pressed.connect(func():
@@ -48,10 +49,12 @@ func _ready() -> void:
 			_sel = 0
 			_refresh())
 		_tab_btns.append(b)
-	var all := MainMenu.make_button(self, "Открыть всё", Vector2(x0 + bw - 250, 76), Vector2(250, 88), 18)
-	all.pressed.connect(func():
-		Save.see_all()
-		_refresh())
+	# «Открыть всё» — кнопка проверки: видна, только если они включены в Настройках → «Прогресс»
+	if StorySettings.get_value("debug_buttons") == true:
+		var all := MainMenu.make_button(self, "Открыть\nвсё", Vector2(x0 + bw - 165, 76), Vector2(165, 88), 18)
+		all.pressed.connect(func():
+			Save.see_all()
+			_refresh())
 	_grid = _panel(Vector2(x0, 174), Vector2(bw * 0.52, _vs.y - 192))
 	_info = _panel(Vector2(x0 + bw * 0.54, 174), Vector2(bw * 0.46, _vs.y - 192))
 	var back := MainMenu.make_button(self, "Назад", Vector2(20, 20), Vector2(130, 55), 26)
@@ -105,6 +108,11 @@ static func make_figure(kind: String, box: Vector2) -> Node2D:
 		wr.kind = kind
 		wr.size = size
 		rig = wr
+	elif kind in RiftRig.KINDS:
+		var rr := RiftRig.new()
+		rr.kind = kind
+		rr.size = size
+		rig = rr
 	else:
 		var br := BotRig.new()
 		br.kind = "hunter" if kind == "mirror_double" else kind     # отражение — в облике героя
@@ -112,7 +120,7 @@ static func make_figure(kind: String, box: Vector2) -> Node2D:
 		if kind == "mirror_double":
 			br.modulate = Color(0.75, 0.95, 1.25, 0.82)
 		rig = br
-	var extra := 1.4 if kind in ["treant", "colossus", "chief", "gladiator", "skeleton_king", "deadwood", "bog_lord"] else 1.15
+	var extra := 1.4 if kind in ["treant", "colossus", "chief", "gladiator", "skeleton_king", "deadwood", "bog_lord", "harbinger"] else 1.15
 	var k := minf(box.x / (size.x * 1.5), box.y / (size.y * extra))
 	var holder := Node2D.new()          # масштаб — у держателя: модель сама крутит свой scale.x
 	holder.scale = Vector2(k, k)
@@ -199,5 +207,15 @@ func _show_info(kind: String) -> void:
 	var stats := "Здоровье: %d\nУрон: %d\nСкорость: %d\nВпервые: волна %d" % [
 			t["hp"], Bots.damage_of(kind), int(t["speed"]), Bots.first_wave(kind)]
 	_label(_info, stats, Vector2(w * 0.48, 112), Vector2(w * 0.5, 110), 18)
-	_label(_info, Bots.LORE.get(kind, ""), Vector2(20, 236), Vector2(w - 40, _info.size.y - 250), 17,
-			Color(0.85, 0.82, 0.75))
+	var lore: String = Bots.LORE.get(kind, "")
+	var hint: String = t.get("hint", "")
+	if hint != "":
+		lore += "\n\nКак победить: " + hint             # механики босса — здесь, а не на экране в бою
+	# длинное описание (с механиками босса) — прокручивается
+	var sc := ScrollContainer.new()
+	sc.position = Vector2(20, 236)
+	sc.size = Vector2(w - 40, _info.size.y - 246)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_info.add_child(sc)
+	var ll := _label(sc, lore, Vector2.ZERO, Vector2(w - 56, 10), 17 if hint == "" else 15, Color(0.85, 0.82, 0.75))
+	ll.custom_minimum_size = Vector2(w - 56, 0)

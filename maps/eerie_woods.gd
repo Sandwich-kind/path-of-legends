@@ -246,6 +246,9 @@ static func _swamp(world: Node) -> Array:
 	mid.width = 240.0
 	mid.position = Vector2(c, f - STEP * 2)
 	world.add_child(mid)
+	# ступеньки к плоту: без них на середину не забраться без способностей
+	for side in [1.0, -1.0]:
+		ForestTrail.wood_plat(world, Rect2(c + side * 215 - 70, f - STEP - 10, 140, 18), PLANK)
 	ForestTrail.wood_plat(world, Rect2(c - 110, f - STEP * 3 - 20, 220, 18), PLANK)
 	sp.append(Colosseum._ledge(world, c, STEP * 4 + 20, 160.0))
 	Props.gravestone(world, c - 330.0, f, true)
